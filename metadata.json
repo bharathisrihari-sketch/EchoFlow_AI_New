@@ -1,0 +1,11 @@
+{
+  "name": "EchoFlow AI",
+  "description": "Real-time speech-to-speech voice normalization engine powered by Gemini Live API, normalizing erratic pacing and accents while preserving natural pitch and emotion.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

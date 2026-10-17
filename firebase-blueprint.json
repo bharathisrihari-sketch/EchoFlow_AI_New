@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with preference settings and authentication details",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth user ID" },
+        "email": { "type": "string", "format": "email", "description": "User email address" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "photoURL": { "type": "string", "description": "Profile picture URL" },
+        "preferredLanguage": { "type": "string", "description": "Preferred dialect or language" },
+        "targetWpm": { "type": "number", "description": "Target cadence pacing in WPM" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "TranscriptionRecord": {
+      "title": "TranscriptionRecord",
+      "description": "Voice audio transcription created by gemini-3.5-transcribe",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "transcript": { "type": "string", "description": "Transcribed raw speech" },
+        "normalizedText": { "type": "string", "description": "EchoFlow normalized 150 WPM text" },
+        "language": { "type": "string", "description": "Detected or selected language" },
+        "wordCount": { "type": "number", "description": "Total words transcribed" },
+        "audioDurationSeconds": { "type": "number", "description": "Duration in seconds" },
+        "modelUsed": { "type": "string", "description": "Model alias used" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "transcript", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Multi-turn Gemini chat message history item",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "role": { "type": "string", "enum": ["user", "model", "system"], "description": "Message author role" },
+        "content": { "type": "string", "description": "Chat message text" },
+        "model": { "type": "string", "description": "Gemini model used" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents"
+    },
+    "/users/{userId}/transcriptions/{transcriptionId}": {
+      "schema": "TranscriptionRecord",
+      "description": "User voice transcriptions from gemini-3.5-transcribe"
+    },
+    "/users/{userId}/chat_messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "User multi-turn Gemini chatbot messages"
+    }
+  }
+}
