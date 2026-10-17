@@ -14,13 +14,26 @@ import { PageEchoFlowToggle } from './PageEchoFlowToggle';
 
 interface UnifiedTelephonyLabProps {
   initialSubTab?: 'video' | 'pbx';
+  onSubTabChange?: (tab: 'video' | 'pbx') => void;
 }
 
 export const UnifiedTelephonyLab: React.FC<UnifiedTelephonyLabProps> = ({
   initialSubTab = 'video',
+  onSubTabChange,
 }) => {
   const [subTab, setSubTab] = useState<'video' | 'pbx'>(initialSubTab);
   const [isEchoFlowActiveOnPage, setIsEchoFlowActiveOnPage] = useState<boolean>(true);
+
+  React.useEffect(() => {
+    if (initialSubTab) {
+      setSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
+
+  const handleSelectSubTab = (t: 'video' | 'pbx') => {
+    setSubTab(t);
+    onSubTabChange?.(t);
+  };
 
   return (
     <div className="space-y-6">
@@ -36,7 +49,7 @@ export const UnifiedTelephonyLab: React.FC<UnifiedTelephonyLabProps> = ({
       <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-3 flex-wrap">
         <div className="flex items-center p-1 bg-slate-950/80 border border-slate-800 rounded-xl">
           <button
-            onClick={() => setSubTab('video')}
+            onClick={() => handleSelectSubTab('video')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               subTab === 'video'
                 ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm'
@@ -51,7 +64,7 @@ export const UnifiedTelephonyLab: React.FC<UnifiedTelephonyLabProps> = ({
           </button>
 
           <button
-            onClick={() => setSubTab('pbx')}
+            onClick={() => handleSelectSubTab('pbx')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               subTab === 'pbx'
                 ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm'

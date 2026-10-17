@@ -16,12 +16,25 @@ import { PageEchoFlowToggle } from './PageEchoFlowToggle';
 
 interface UnifiedDocsHubProps {
   initialSubTab?: 'manual' | 'benchmarks' | 'code';
+  onSubTabChange?: (tab: 'manual' | 'benchmarks' | 'code') => void;
 }
 
 export const UnifiedDocsHub: React.FC<UnifiedDocsHubProps> = ({
   initialSubTab = 'manual',
+  onSubTabChange,
 }) => {
   const [subTab, setSubTab] = useState<'manual' | 'benchmarks' | 'code'>(initialSubTab);
+
+  React.useEffect(() => {
+    if (initialSubTab) {
+      setSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
+
+  const handleSelectSubTab = (t: 'manual' | 'benchmarks' | 'code') => {
+    setSubTab(t);
+    onSubTabChange?.(t);
+  };
 
   return (
     <div className="space-y-6">
@@ -36,7 +49,7 @@ export const UnifiedDocsHub: React.FC<UnifiedDocsHubProps> = ({
       <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-3 flex-wrap">
         <div className="flex items-center p-1 bg-slate-950/80 border border-slate-800 rounded-xl">
           <button
-            onClick={() => setSubTab('manual')}
+            onClick={() => handleSelectSubTab('manual')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               subTab === 'manual'
                 ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
@@ -48,7 +61,7 @@ export const UnifiedDocsHub: React.FC<UnifiedDocsHubProps> = ({
           </button>
 
           <button
-            onClick={() => setSubTab('benchmarks')}
+            onClick={() => handleSelectSubTab('benchmarks')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               subTab === 'benchmarks'
                 ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
@@ -63,7 +76,7 @@ export const UnifiedDocsHub: React.FC<UnifiedDocsHubProps> = ({
           </button>
 
           <button
-            onClick={() => setSubTab('code')}
+            onClick={() => handleSelectSubTab('code')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               subTab === 'code'
                 ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm'

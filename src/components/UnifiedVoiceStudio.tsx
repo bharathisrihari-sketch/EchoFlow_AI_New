@@ -35,6 +35,7 @@ interface UnifiedVoiceStudioProps {
   onLanguageSelect: (lang: LanguageKey) => void;
   isPlayingAudio: boolean;
   initialSubTab?: 'normalizer' | 'transcriber' | 'chatbot';
+  onSubTabChange?: (tab: 'normalizer' | 'transcriber' | 'chatbot') => void;
 }
 
 export const UnifiedVoiceStudio: React.FC<UnifiedVoiceStudioProps> = ({
@@ -55,9 +56,22 @@ export const UnifiedVoiceStudio: React.FC<UnifiedVoiceStudioProps> = ({
   onLanguageSelect,
   isPlayingAudio,
   initialSubTab = 'normalizer',
+  onSubTabChange,
 }) => {
   const [subTab, setSubTab] = useState<'normalizer' | 'transcriber' | 'chatbot'>(initialSubTab);
   const [isEchoFlowActiveOnPage, setIsEchoFlowActiveOnPage] = useState<boolean>(true);
+
+  // Sync sub-tab whenever initialSubTab changes from parent
+  React.useEffect(() => {
+    if (initialSubTab) {
+      setSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
+
+  const handleSelectSubTab = (t: 'normalizer' | 'transcriber' | 'chatbot') => {
+    setSubTab(t);
+    onSubTabChange?.(t);
+  };
 
   return (
     <div className="space-y-6">
@@ -73,7 +87,7 @@ export const UnifiedVoiceStudio: React.FC<UnifiedVoiceStudioProps> = ({
       <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-3 flex-wrap">
         <div className="flex items-center p-1 bg-slate-950/80 border border-slate-800 rounded-xl">
           <button
-            onClick={() => setSubTab('normalizer')}
+            onClick={() => handleSelectSubTab('normalizer')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               subTab === 'normalizer'
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
@@ -85,7 +99,7 @@ export const UnifiedVoiceStudio: React.FC<UnifiedVoiceStudioProps> = ({
           </button>
 
           <button
-            onClick={() => setSubTab('transcriber')}
+            onClick={() => handleSelectSubTab('transcriber')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               subTab === 'transcriber'
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
@@ -100,7 +114,7 @@ export const UnifiedVoiceStudio: React.FC<UnifiedVoiceStudioProps> = ({
           </button>
 
           <button
-            onClick={() => setSubTab('chatbot')}
+            onClick={() => handleSelectSubTab('chatbot')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               subTab === 'chatbot'
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'

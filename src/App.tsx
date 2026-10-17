@@ -10,25 +10,54 @@ import { GuidedFeatureTour } from './components/GuidedFeatureTour';
 import { NewUserNavigationFlow } from './components/NewUserNavigationFlow';
 import { PageEchoFlowToggle } from './components/PageEchoFlowToggle';
 import { UnifiedVoiceStudio } from './components/UnifiedVoiceStudio';
-import { UnifiedTelephonyLab } from './components/UnifiedTelephonyLab';
-import { UnifiedDocsHub } from './components/UnifiedDocsHub';
+import { VideoComparison } from './components/VideoComparison';
+import { PbxCallSimulator } from './components/PbxCallSimulator';
 import { RoiCalculator } from './components/RoiCalculator';
 import { TelephonyAndGcp } from './components/TelephonyAndGcp';
 import { CascadingSitemap } from './components/CascadingSitemap';
 import { EthicsCompliance } from './components/EthicsCompliance';
 import { AboutPage } from './components/AboutPage';
 import { ContactPage } from './components/ContactPage';
+import { MasterDocumentation } from './components/MasterDocumentation';
+import { OfflineReferenceHub } from './components/OfflineReferenceHub';
+import { CodeInspector } from './components/CodeInspector';
 import { FirebaseAuthBar } from './components/FirebaseAuthBar';
 import { GlobalTelemetryBar } from './components/GlobalTelemetryBar';
 import { FloatingGeminiAgent } from './components/FloatingGeminiAgent';
 import { TestFeatureNowModal } from './components/TestFeatureNowModal';
+import { HowPageWorksPanel } from './components/HowPageWorksPanel';
+import { NavigationStepper, NextStepFooterButton } from './components/NavigationStepper';
+import { FirstVisitWelcomeModal } from './components/FirstVisitWelcomeModal';
 import { TelemetryData, LanguageKey } from './types';
 import { getStoredLanguage, setStoredLanguage, LANGUAGE_CONFIGS } from './config/languages';
-import { ChevronRight, Cloud, Server, Sparkles } from 'lucide-react';
+import {
+  NavState,
+  NavSection,
+  parseHash,
+  serializeHash,
+  LEGACY_TAB_MAP,
+  PAGE_GUIDES,
+} from './config/navigation';
+import {
+  ChevronRight,
+  Server,
+  Sparkles,
+  ArrowRight,
+  Zap,
+  Globe2,
+  CheckCircle2,
+  Play,
+} from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<AppTab>('studio');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // Navigation state synchronized with URL hash (e.g. #/try/normalizer, #/call, #/help/code)
+  const [navState, setNavState] = useState<NavState>(() => {
+    if (typeof window !== 'undefined') {
+      return parseHash(window.location.hash);
+    }
+    return { section: 'start' };
+  });
+
   const [isStreaming, setIsStreaming] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isTestFeatureOpen, setIsTestFeatureOpen] = useState(false);
@@ -70,6 +99,32 @@ export default function App() {
     };
   });
 
+  // Listen to browser Back/Forward navigation
+  useEffect(() => {
+    const handleHashChange = () => {
+      const parsed = parseHash(window.location.hash);
+      setNavState(parsed);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // Update hash when navState changes programmatically
+  const handleNavigate = (state: NavState) => {
+    setNavState(state);
+    const newHash = serializeHash(state);
+    if (window.location.hash !== newHash) {
+      window.location.hash = newHash;
+    }
+  };
+
+  // Backwards-compatible navigation handler for child components that pass legacy AppTab
+  const handleLegacyNavigate = (tab: AppTab | string) => {
+    const mapped = LEGACY_TAB_MAP[tab] || { section: 'start' };
+    handleNavigate(mapped);
+  };
+
   const handleLanguageChange = (newLang: LanguageKey) => {
     setSelectedLanguage(newLang);
     setStoredLanguage(newLang);
@@ -110,240 +165,267 @@ export default function App() {
       .catch((err) => console.log('Stats polling note:', err));
   }, []);
 
-  const getBreadcrumbTitle = (tab: AppTab): string => {
-    switch (tab) {
-      case 'tour':
-        return 'Guided Tour & New User Roadmap';
-      case 'studio':
-      case 'transcribe':
-      case 'chatbot':
-        return 'Voice Normalization Studio & AI Suite';
-      case 'telephony_lab':
-      case 'video':
-      case 'pbx':
-        return 'Media & PBX Simulation Lab';
-      case 'roi':
-        return 'Enterprise ROI & Financial Model';
-      case 'telephony_gcp':
-        return 'Cloud Run Topology & Webhooks';
-      case 'sitemap':
-        return 'Architectural System Map';
-      case 'docs':
-      case 'guide':
-      case 'reference_hub':
-      case 'code':
-        return 'Documentation & Reference Hub';
-      case 'ethics':
-        return 'Linguistic Equity & Anti-Bias';
-      case 'about':
-        return 'About & Project Brief';
-      case 'contact':
-        return 'Enterprise Pilot Inquiry';
+  // Dynamic Breadcrumb and Page Title
+  const getSectionTitle = (section: NavSection): string => {
+    switch (section) {
+      case 'start':
+        return 'Getting Started';
+      case 'try':
+        return 'Try Voice Conversion';
+      case 'call':
+        return 'In a Call (PBX Simulation)';
+      case 'value':
+        return 'Enterprise ROI & Value';
+      case 'how':
+        return 'How It Works';
+      case 'help':
+        return 'Documentation & Help';
       default:
-        return 'EchoFlow AI Console';
+        return 'EchoFlow AI';
     }
   };
 
+  const getSubTitle = (nav: NavState): string => {
+    if (!nav.sub) return '';
+    const key = `${nav.section}/${nav.sub}`;
+    return PAGE_GUIDES[key]?.title || nav.sub;
+  };
+
+  // Sync document.title
+  useEffect(() => {
+    const sub = getSubTitle(navState);
+    const sec = getSectionTitle(navState.section);
+    document.title = sub ? `${sub} | EchoFlow AI` : `${sec} | EchoFlow AI`;
+  }, [navState]);
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
-      {/* GCP Console Top Bar & Collapsible Side Navigation Drawer */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200 pb-16 md:pb-0">
+      {/* 1. First-Visit Welcome Modal */}
+      <FirstVisitWelcomeModal
+        onStartTour={() => handleNavigate({ section: 'start' })}
+      />
+
+      {/* 2. Top Navigation Bar (Replacing Heavy Sidebar Drawer) */}
       <GcpConsoleNav
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        isStreaming={isStreaming}
-        latencyMs={telemetry.latencyMs}
+        navState={navState}
+        onNavigate={handleNavigate}
         selectedLanguage={selectedLanguage}
         onLanguageChange={handleLanguageChange}
-        isSidebarOpen={isSidebarOpen}
-        setIsSidebarOpen={setIsSidebarOpen}
+        isStreaming={isStreaming}
+        latencyMs={telemetry.latencyMs}
         onOpenTestFeature={() => setIsTestFeatureOpen(true)}
       />
 
-      {/* Main Body - Offset by Sidebar */}
-      <div
-        className={`flex-1 transition-all duration-300 flex flex-col ${
-          isSidebarOpen ? 'lg:pl-64 sm:lg:pl-72' : 'lg:pl-16'
-        }`}
-      >
-        {/* GCP Console Breadcrumbs & Service Bar */}
-        <div className="h-10 bg-slate-900/60 border-b border-slate-800/80 px-4 sm:px-6 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1.5 text-slate-400 font-mono text-[11px] truncate">
-            <span className="text-slate-300">Google Cloud</span>
-            <ChevronRight className="w-3 h-3 text-slate-600" />
-            <span className="text-slate-300">EchoFlow AI</span>
-            <ChevronRight className="w-3 h-3 text-slate-600" />
-            <span className="text-cyan-400 font-semibold">{getBreadcrumbTitle(activeTab)}</span>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-3 text-[11px] font-mono text-slate-400">
-            <span className="flex items-center gap-1">
-              <Server className="w-3 h-3 text-emerald-400" />
-              <span>Cloud Run (asia-southeast1)</span>
-            </span>
-            <span className="text-slate-600">•</span>
-            <span className="text-cyan-400 font-bold">Gemini Live Bidi Active</span>
-          </div>
+      {/* 3. Sub-Header: Breadcrumbs & Cloud Run Service Status */}
+      <div className="bg-slate-900/60 border-b border-slate-800/80 px-4 sm:px-6 py-2 flex items-center justify-between text-xs">
+        <div className="flex items-center gap-1.5 text-slate-400 font-mono text-[11px] truncate">
+          <span className="text-slate-300">Google Cloud</span>
+          <ChevronRight className="w-3 h-3 text-slate-600" />
+          <span className="text-slate-300">EchoFlow AI</span>
+          <ChevronRight className="w-3 h-3 text-slate-600" />
+          <span className="text-cyan-400 font-semibold">{getSectionTitle(navState.section)}</span>
+          {navState.sub && (
+            <>
+              <ChevronRight className="w-3 h-3 text-slate-600" />
+              <span className="text-emerald-400 font-semibold">{getSubTitle(navState)}</span>
+            </>
+          )}
         </div>
 
-        {/* Firebase Authentication & Firestore Connection Bar */}
-        <FirebaseAuthBar />
-
-        {/* Global Persistent Telemetry HUD Bar */}
-        <GlobalTelemetryBar
-          telemetry={telemetry}
-          isStreaming={isStreaming}
-          onNavigateToStudio={() => setActiveTab('studio')}
-          currentTab={activeTab}
-          onOpenTestFeature={() => setIsTestFeatureOpen(true)}
-        />
-
-        {/* Dynamic Main Workspace Container */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
-          {/* Tab 1: Guided Feature Tour & New User Navigation Flow Roadmap */}
-          {activeTab === 'tour' && (
-            <div className="space-y-8 animate-in fade-in-50 duration-200">
-              <PageEchoFlowToggle
-                pageId="tour"
-                pageTitle="Guided Tour & Onboarding"
-                description="Explore the end-to-end user navigation flow and experience real-time speech conversion examples."
-              />
-              <NewUserNavigationFlow onNavigateToTab={(t) => setActiveTab(t)} />
-              <GuidedFeatureTour onNavigateToScreen={(scr) => setActiveTab(scr)} />
-            </div>
-          )}
-
-          {/* Tab 2: Unified Voice Normalization & AI Studio (Normalizer + Transcriber + Chatbot) */}
-          {(activeTab === 'studio' || activeTab === 'transcribe' || activeTab === 'chatbot') && (
-            <div className="animate-in fade-in-50 duration-200">
-              <UnifiedVoiceStudio
-                isStreaming={isStreaming}
-                setIsStreaming={setIsStreaming}
-                telemetry={telemetry}
-                setTelemetry={setTelemetry}
-                targetWpm={targetWpm}
-                setTargetWpm={setTargetWpm}
-                pitchRetention={pitchRetention}
-                setPitchRetention={setPitchRetention}
-                voicePersona={voicePersona}
-                setVoicePersona={setVoicePersona}
-                fillerSuppression={fillerSuppression}
-                setFillerSuppression={setFillerSuppression}
-                onAudioPlayStateChange={setIsPlayingAudio}
-                selectedLanguage={selectedLanguage}
-                onLanguageSelect={handleLanguageChange}
-                isPlayingAudio={isPlayingAudio}
-                initialSubTab={
-                  activeTab === 'transcribe'
-                    ? 'transcriber'
-                    : activeTab === 'chatbot'
-                    ? 'chatbot'
-                    : 'normalizer'
-                }
-              />
-            </div>
-          )}
-
-          {/* Tab 3: Unified Telephony & Media Simulation Lab (Video Comparison + PBX Simulator) */}
-          {(activeTab === 'telephony_lab' || activeTab === 'video' || activeTab === 'pbx') && (
-            <div className="animate-in fade-in-50 duration-200">
-              <UnifiedTelephonyLab initialSubTab={activeTab === 'pbx' ? 'pbx' : 'video'} />
-            </div>
-          )}
-
-          {/* Tab 4: Enterprise Financial ROI Engine & Economics */}
-          {activeTab === 'roi' && (
-            <div className="space-y-6 animate-in fade-in-50 duration-200">
-              <PageEchoFlowToggle
-                pageId="roi"
-                pageTitle="Enterprise ROI Engine"
-                description="Calculates annual bottom-line savings enabled by 18% AHT compression and reduced repeat calls."
-              />
-              <RoiCalculator />
-            </div>
-          )}
-
-          {/* Tab 5: Cloud Run Serverless Topology & Telephony Webhooks */}
-          {activeTab === 'telephony_gcp' && (
-            <div className="space-y-6 animate-in fade-in-50 duration-200">
-              <PageEchoFlowToggle
-                pageId="cloud_topology"
-                pageTitle="Cloud Run Topology & Webhooks"
-                description="Demonstrates < 550ms end-to-end latency SLA compliance and Twilio/Genesys SIP webhooks."
-              />
-              <TelephonyAndGcp />
-            </div>
-          )}
-
-          {/* Tab 6: Interactive Architectural System Map & Pipeline Flow */}
-          {activeTab === 'sitemap' && (
-            <div className="animate-in fade-in-50 duration-200">
-              <CascadingSitemap onNavigateToTab={(t) => setActiveTab(t)} />
-            </div>
-          )}
-
-          {/* Tab 7: Unified Documentation, 12-Test Benchmark Matrix & Codebase Bundle */}
-          {(activeTab === 'docs' ||
-            activeTab === 'guide' ||
-            activeTab === 'reference_hub' ||
-            activeTab === 'code') && (
-            <div className="animate-in fade-in-50 duration-200">
-              <UnifiedDocsHub
-                initialSubTab={
-                  activeTab === 'reference_hub'
-                    ? 'benchmarks'
-                    : activeTab === 'code'
-                    ? 'code'
-                    : 'manual'
-                }
-              />
-            </div>
-          )}
-
-          {/* Tab 8: Linguistic Equity, Anti-Bias Charter & Compliance */}
-          {activeTab === 'ethics' && (
-            <div className="space-y-6 animate-in fade-in-50 duration-200">
-              <PageEchoFlowToggle
-                pageId="ethics"
-                pageTitle="Linguistic Equity & Anti-Bias"
-                description="Audits fairness across 6 global accents and verifies zero-disk volatile RAM processing (GDPR / HIPAA)."
-              />
-              <EthicsCompliance />
-            </div>
-          )}
-
-          {/* Tab 9: About & Submission Details */}
-          {activeTab === 'about' && (
-            <div className="space-y-6 animate-in fade-in-50 duration-200">
-              <PageEchoFlowToggle
-                pageId="about"
-                pageTitle="About & Submitter Profile"
-                description="Hack2skill AI Builder Cup 2026 submission details, platform architecture, and developer profile."
-              />
-              <AboutPage />
-            </div>
-          )}
-
-          {/* Tab 10: Enterprise Pilot Inquiry */}
-          {activeTab === 'contact' && (
-            <div className="space-y-6 animate-in fade-in-50 duration-200">
-              <PageEchoFlowToggle
-                pageId="contact"
-                pageTitle="Enterprise Pilot Inquiry"
-                description="Request an enterprise pilot deployment or SIP trunk integration."
-              />
-              <ContactPage />
-            </div>
-          )}
-        </main>
+        <div className="hidden sm:flex items-center gap-3 text-[11px] font-mono text-slate-400">
+          <span className="flex items-center gap-1">
+            <Server className="w-3 h-3 text-emerald-400" />
+            <span>Cloud Run (asia-southeast1)</span>
+          </span>
+          <span className="text-slate-600">•</span>
+          <span className="text-cyan-400 font-bold">Gemini Live Bidi Active</span>
+        </div>
       </div>
 
-      {/* Floating Gemini AI Support Agent */}
-      <FloatingGeminiAgent
-        onNavigateToTab={(t) => setActiveTab(t)}
+      {/* 4. Firebase Authentication Status Bar */}
+      <FirebaseAuthBar />
+
+      {/* 5. Telemetry HUD Bar */}
+      <GlobalTelemetryBar
+        telemetry={telemetry}
+        isStreaming={isStreaming}
+        onNavigateToStudio={() => handleNavigate({ section: 'try', sub: 'normalizer' })}
+        currentTab={navState.section as any}
         onOpenTestFeature={() => setIsTestFeatureOpen(true)}
       />
 
-      {/* Interactive 3-Language Feature Testbench Modal (English, Tamil, Telugu) */}
+      {/* 6. Main Workspace Container with 5-Step Stepper */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Progress Stepper ("Step X of 5") */}
+        <NavigationStepper
+          navState={navState}
+          onNavigate={handleNavigate}
+        />
+
+        {/* SECTION 1: START */}
+        {navState.section === 'start' && (
+          <div className="space-y-6 animate-in fade-in-50 duration-200">
+            {/* Plain-Language How This Page Works Panel */}
+            <HowPageWorksPanel pageKey="start" />
+
+            {/* Intro Hero Banner */}
+            <div className="bg-gradient-to-r from-cyan-950/70 via-slate-900 to-emerald-950/60 border border-cyan-500/30 rounded-2xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+              <div className="max-w-3xl space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[11px] font-mono font-bold uppercase tracking-wider">
+                    EchoFlow AI 2026
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">
+                    Hack2skill AI Builder Cup
+                  </span>
+                </div>
+
+                <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
+                  Natural Voice Pitch-Preserving Speech Cadence Normalization
+                </h1>
+
+                <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+                  Turn hurried, high-stress, or dialect-heavy speech into composed, articulate 150 WPM executive delivery — while strictly preserving the speaker’s own pitch, emotion, and vocal timbre.
+                </p>
+
+                {/* Big Action Buttons */}
+                <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <button
+                    onClick={() => handleNavigate({ section: 'try', sub: 'normalizer' })}
+                    className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 text-slate-950 font-black text-sm shadow-lg shadow-cyan-400/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                  >
+                    <Play className="w-4 h-4 fill-current" />
+                    <span>Start the demo</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => setIsTestFeatureOpen(true)}
+                    className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-sm transition-all cursor-pointer"
+                  >
+                    <Zap className="w-4 h-4 text-amber-400" />
+                    <span>Test live examples now</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Visual Roadmap & Onboarding Flow */}
+            <NewUserNavigationFlow onNavigateToTab={(t) => handleLegacyNavigate(t)} />
+            <GuidedFeatureTour onNavigateToScreen={(scr) => handleLegacyNavigate(scr)} />
+
+            {/* Next Step Footer Button */}
+            <NextStepFooterButton currentSection="start" onNavigate={handleNavigate} />
+          </div>
+        )}
+
+        {/* SECTION 2: TRY (Normalizer, Transcriber, Chatbot, Video) */}
+        {navState.section === 'try' && (
+          <div className="space-y-6 animate-in fade-in-50 duration-200">
+            {navState.sub === 'video' ? (
+              <>
+                <HowPageWorksPanel pageKey="try/video" />
+                <VideoComparison />
+              </>
+            ) : (
+              <>
+                <HowPageWorksPanel pageKey={`try/${navState.sub || 'normalizer'}`} />
+                <UnifiedVoiceStudio
+                  isStreaming={isStreaming}
+                  setIsStreaming={setIsStreaming}
+                  telemetry={telemetry}
+                  setTelemetry={setTelemetry}
+                  targetWpm={targetWpm}
+                  setTargetWpm={setTargetWpm}
+                  pitchRetention={pitchRetention}
+                  setPitchRetention={setPitchRetention}
+                  voicePersona={voicePersona}
+                  setVoicePersona={setVoicePersona}
+                  fillerSuppression={fillerSuppression}
+                  setFillerSuppression={setFillerSuppression}
+                  onAudioPlayStateChange={setIsPlayingAudio}
+                  selectedLanguage={selectedLanguage}
+                  onLanguageSelect={handleLanguageChange}
+                  isPlayingAudio={isPlayingAudio}
+                  initialSubTab={
+                    navState.sub === 'transcriber'
+                      ? 'transcriber'
+                      : navState.sub === 'chatbot'
+                      ? 'chatbot'
+                      : 'normalizer'
+                  }
+                  onSubTabChange={(sub) => handleNavigate({ section: 'try', sub })}
+                />
+              </>
+            )}
+
+            {/* Next Step Footer Button */}
+            <NextStepFooterButton currentSection="try" onNavigate={handleNavigate} />
+          </div>
+        )}
+
+        {/* SECTION 3: CALL (PBX Simulator) */}
+        {navState.section === 'call' && (
+          <div className="space-y-6 animate-in fade-in-50 duration-200">
+            <HowPageWorksPanel pageKey="call" />
+            <PbxCallSimulator />
+            <NextStepFooterButton currentSection="call" onNavigate={handleNavigate} />
+          </div>
+        )}
+
+        {/* SECTION 4: VALUE (ROI Calculator) */}
+        {navState.section === 'value' && (
+          <div className="space-y-6 animate-in fade-in-50 duration-200">
+            <HowPageWorksPanel pageKey="value" />
+            <RoiCalculator />
+            <NextStepFooterButton currentSection="value" onNavigate={handleNavigate} />
+          </div>
+        )}
+
+        {/* SECTION 5: HOW IT WORKS (Architecture, Cloud Topology, Ethics) */}
+        {navState.section === 'how' && (
+          <div className="space-y-6 animate-in fade-in-50 duration-200">
+            <HowPageWorksPanel pageKey={`how/${navState.sub || 'architecture'}`} />
+
+            {navState.sub === 'cloud' ? (
+              <TelephonyAndGcp />
+            ) : navState.sub === 'ethics' ? (
+              <EthicsCompliance />
+            ) : (
+              <CascadingSitemap onNavigateToTab={(t) => handleLegacyNavigate(t)} />
+            )}
+
+            <NextStepFooterButton currentSection="how" onNavigate={handleNavigate} />
+          </div>
+        )}
+
+        {/* SECTION 6: HELP (Manual, Benchmarks, About, Contact, Developer) */}
+        {navState.section === 'help' && (
+          <div className="space-y-6 animate-in fade-in-50 duration-200">
+            <HowPageWorksPanel pageKey={`help/${navState.sub || 'manual'}`} />
+
+            {navState.sub === 'benchmarks' ? (
+              <OfflineReferenceHub />
+            ) : navState.sub === 'developer' ? (
+              <CodeInspector />
+            ) : navState.sub === 'about' ? (
+              <AboutPage />
+            ) : navState.sub === 'contact' ? (
+              <ContactPage />
+            ) : (
+              <MasterDocumentation />
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* Floating Gemini AI Engineering Agent */}
+      <FloatingGeminiAgent
+        onNavigateToTab={(t) => handleLegacyNavigate(t)}
+        onOpenTestFeature={() => setIsTestFeatureOpen(true)}
+      />
+
+      {/* Interactive 5-Path Feature Testbench Modal */}
       <TestFeatureNowModal
         isOpen={isTestFeatureOpen}
         onClose={() => setIsTestFeatureOpen(false)}

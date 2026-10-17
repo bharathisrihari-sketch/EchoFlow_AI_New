@@ -502,6 +502,9 @@ export const TestFeatureNowModal: React.FC<TestFeatureNowModalProps> = ({
   const [liveTranscript, setLiveTranscript] = useState('');
   const [liveConvertedPreview, setLiveConvertedPreview] = useState('');
   const [audioLevel, setAudioLevel] = useState(0);
+  const [liveNotice, setLiveNotice] = useState<string | null>(null);
+  const isSimulatedRef = useRef<boolean>(false);
+  const simulationIntervalRef = useRef<any>(null);
 
   // Active Evaluated Test Result (Shown in Comparison Studio on Live OFF or Upload)
   const [activeTestRecord, setActiveTestRecord] = useState<TestVaultRecord | null>(null);
@@ -522,6 +525,15 @@ export const TestFeatureNowModal: React.FC<TestFeatureNowModalProps> = ({
   const animFrameRef = useRef<any>(null);
   const speechCancelRef = useRef<(() => void) | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const livePreviewSeqRef = useRef<number>(0);
+  const isMountedRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Sync Vault to localStorage
   useEffect(() => {
@@ -808,9 +820,11 @@ export const TestFeatureNowModal: React.FC<TestFeatureNowModalProps> = ({
   // START LIVE VOICE / VIDEO CONVERSION (Option 4)
   const handleStartLiveSession = async () => {
     try {
-      if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-        alert('Microphone/Camera access is not supported in this browser.');
-        return;
+      setLiveNotice(null);
+      isSimulatedRef.current = false;
+      if (simulationIntervalRef.current) {
+        clearInterval(simulationIntervalRef.current);
+        simulationIntervalRef.current = null;
       }
 
       window.speechSynthesis.cancel();
@@ -819,101 +833,204 @@ export const TestFeatureNowModal: React.FC<TestFeatureNowModalProps> = ({
       setLiveConvertedPreview('');
       recordedChunksRef.current = [];
 
+      let stream: MediaStream | null = null;
       const constraints: MediaStreamConstraints = {
         audio: true,
         video: liveWithVideo ? { width: { ideal: 640 }, height: { ideal: 480 } } : false,
       };
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (typeof window !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (initialErr: any) {
+          console.warn('Initial getUserMedia error:', initialErr);
+          // If camera capture failed, try audio-only
+          if (liveWithVideo) {
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              setLiveNotice('Camera permission unavailable; fell back to audio-only live session.');
+            } catch (audioErr) {
+              console.warn('Audio fallback getUserMedia error:', audioErr);
+            }
+          }
+        }
+      }
+
+      // If hardware permissions are completely blocked (e.g. iFrame security restrictions),
+      // provide a high-fidelity synthetic live stream so the feature remains 100% testable.
+      if (!stream) {
+        isSimulatedRef.current = true;
+        setLiveNotice('Microphone/Camera permission restricted. Operating in interactive simulation mode with synthetic live speech.');
+
+        try {
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          audioContextRef.current = audioCtx;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          gain.gain.value = 0.001; // Silent tone to keep stream active
+          osc.connect(gain);
+          const dest = audioCtx.createMediaStreamDestination();
+          gain.connect(dest);
+          osc.start();
+
+          if (liveWithVideo && typeof document !== 'undefined') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 640;
+            canvas.height = 480;
+            const ctx = canvas.getContext('2d');
+            let frameCount = 0;
+            const drawSim = () => {
+              if (!ctx) return;
+              frameCount++;
+              ctx.fillStyle = '#0f172a';
+              ctx.fillRect(0, 0, 640, 480);
+              // Draw pulsating speaker avatar and waveform
+              ctx.fillStyle = '#06b6d4';
+              ctx.beginPath();
+              ctx.arc(320, 200, 50 + Math.sin(frameCount * 0.1) * 10, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.fillStyle = '#f8fafc';
+              ctx.font = '18px monospace';
+              ctx.textAlign = 'center';
+              ctx.fillText('EchoFlow AI - Live Voice Conversion Simulation', 320, 320);
+              ctx.fillStyle = '#94a3b8';
+              ctx.font = '14px sans-serif';
+              ctx.fillText('Normalizing pacing, fillers, and speech cadence...', 320, 360);
+            };
+            const canvasTimer = setInterval(drawSim, 100);
+            const canvasStream = canvas.captureStream(25);
+            const combined = new MediaStream([
+              ...dest.stream.getAudioTracks(),
+              ...canvasStream.getVideoTracks()
+            ]);
+            (combined as any)._canvasTimer = canvasTimer;
+            stream = combined;
+          } else {
+            stream = dest.stream;
+          }
+        } catch (synthErr) {
+          console.warn('Could not initialize synthetic stream:', synthErr);
+        }
+      }
+
       mediaStreamRef.current = stream;
 
-      // Attach live video preview
-      if (liveWithVideo && liveVideoPreviewRef.current) {
+      // Attach live video preview if element and stream exist
+      if (liveWithVideo && liveVideoPreviewRef.current && stream && stream.getVideoTracks().length > 0) {
         liveVideoPreviewRef.current.srcObject = stream;
         liveVideoPreviewRef.current.play().catch(() => {});
       }
 
       // Audio level analyser for waveform visualization
-      try {
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        audioContextRef.current = audioCtx;
-        const source = audioCtx.createMediaStreamSource(stream);
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 64;
-        source.connect(analyser);
-        analyserRef.current = analyser;
-
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        const checkLevel = () => {
-          if (!analyserRef.current) return;
-          analyserRef.current.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-          const avg = sum / dataArray.length;
-          setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
-          animFrameRef.current = requestAnimationFrame(checkLevel);
-        };
-        checkLevel();
-      } catch (err) {
-        console.warn('AudioAnalyser init warning:', err);
-      }
-
-      // Setup MediaRecorder
-      const mimeType = liveWithVideo && MediaRecorder.isTypeSupported('video/webm')
-        ? 'video/webm'
-        : 'audio/webm';
-      const recorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = recorder;
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) recordedChunksRef.current.push(e.data);
-      };
-
-      recorder.start(100);
-
-      // Start Web Speech Recognition
-      const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-      let transcriptAccumulator = '';
-      if (SpeechRecognition) {
+      if (stream) {
         try {
-          const recognition = new SpeechRecognition();
-          recognition.continuous = true;
-          recognition.interimResults = true;
-          recognition.lang = 'en-US';
+          const audioCtx = audioContextRef.current || new (window.AudioContext || (window as any).webkitAudioContext)();
+          audioContextRef.current = audioCtx;
+          const source = audioCtx.createMediaStreamSource(stream);
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 64;
+          source.connect(analyser);
+          analyserRef.current = analyser;
 
-          recognition.onresult = async (event: any) => {
-            let current = '';
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-              current += event.results[i][0].transcript;
-            }
-            transcriptAccumulator = current;
-            setLiveTranscript(current);
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          const checkLevel = () => {
+            if (!analyserRef.current) return;
+            analyserRef.current.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+            const avg = sum / dataArray.length;
+            setAudioLevel(isSimulatedRef.current ? Math.floor(40 + Math.random() * 35) : Math.min(100, Math.round((avg / 128) * 100)));
+            animFrameRef.current = requestAnimationFrame(checkLevel);
+          };
+          checkLevel();
+        } catch (err) {
+          console.warn('AudioAnalyser init warning:', err);
+        }
 
-            // Live converted feedback
-            if (current.trim().length > 15) {
-              const res = await normalizeSpeechText(current);
-              setLiveConvertedPreview(res.normalizedText);
+        // Setup MediaRecorder
+        try {
+          const mimeType = liveWithVideo && MediaRecorder.isTypeSupported('video/webm')
+            ? 'video/webm'
+            : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
+          const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+          mediaRecorderRef.current = recorder;
 
-              // Live audio playback if feedback toggle is on
-              if (liveAudioFeedback && !window.speechSynthesis.speaking) {
-                const femaleVoice = getArchetypeVoice('lady');
-                const lastSentence = res.normalizedText.split('.').filter(Boolean).pop();
-                if (lastSentence) {
-                  const utterance = new SpeechSynthesisUtterance(lastSentence);
-                  if (femaleVoice) utterance.voice = femaleVoice;
-                  utterance.rate = 1.0;
-                  window.speechSynthesis.speak(utterance);
-                }
-              }
-            }
+          recorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data);
           };
 
-          recognition.start();
-          speechRecognitionRef.current = recognition;
-        } catch (err) {
-          console.warn('SpeechRecognition start warning:', err);
+          recorder.start(100);
+        } catch (recErr) {
+          console.warn('MediaRecorder init error:', recErr);
+        }
+      }
+
+      // If simulated mode, progressively emit simulated utterances to demonstrate real-time normalization
+      if (isSimulatedRef.current) {
+        const simPhrases = [
+          "Hello, sir, enna na...",
+          "Hello, sir, enna na... our server in Chennai is failing continuous-aa...",
+          "Hello, sir, enna na... our server in Chennai is failing continuous-aa, customer is shouting only! Please fix it immediately."
+        ];
+        let phraseIdx = 0;
+        simulationIntervalRef.current = setInterval(async () => {
+          if (phraseIdx < simPhrases.length) {
+            const current = simPhrases[phraseIdx];
+            setLiveTranscript(current);
+            phraseIdx++;
+            if (current.length > 15) {
+              const res = await normalizeSpeechText(current);
+              setLiveConvertedPreview(res.normalizedText);
+            }
+          }
+        }, 1500);
+      } else {
+        // Start Web Speech Recognition if available
+        const SpeechRecognition =
+          (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+        if (SpeechRecognition) {
+          try {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = async (event: any) => {
+              let current = '';
+              for (let i = event.resultIndex; i < event.results.length; i++) {
+                current += event.results[i][0].transcript;
+              }
+              setLiveTranscript(current);
+
+              if (current.trim().length > 15) {
+                livePreviewSeqRef.current += 1;
+                const thisSeq = livePreviewSeqRef.current;
+                normalizeSpeechText(current)
+                  .then((res) => {
+                    if (thisSeq !== livePreviewSeqRef.current || !isMountedRef.current) return;
+                    setLiveConvertedPreview(res.normalizedText);
+
+                    if (liveAudioFeedback && !window.speechSynthesis.speaking) {
+                      const femaleVoice = getArchetypeVoice('lady');
+                      const lastSentence = res.normalizedText.split('.').filter(Boolean).pop();
+                      if (lastSentence) {
+                        const utterance = new SpeechSynthesisUtterance(lastSentence);
+                        if (femaleVoice) utterance.voice = femaleVoice;
+                        utterance.rate = 1.0;
+                        window.speechSynthesis.speak(utterance);
+                      }
+                    }
+                  })
+                  .catch(() => {});
+              }
+            };
+
+            recognition.start();
+            speechRecognitionRef.current = recognition;
+          } catch (err) {
+            console.warn('SpeechRecognition start warning:', err);
+          }
         }
       }
 
@@ -922,15 +1039,19 @@ export const TestFeatureNowModal: React.FC<TestFeatureNowModalProps> = ({
       liveTimerRef.current = setInterval(() => {
         setLiveSeconds((s) => s + 1);
       }, 1000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error starting live session:', err);
-      alert('Could not start live capture. Please grant camera/microphone permissions.');
+      setLiveNotice('Live capture session could not initialize: ' + (err?.message || 'Access error'));
     }
   };
 
   // STOP LIVE SESSION (Auto-Triggers Comparison Studio on the Same Screen!)
   const handleStopLiveSession = async () => {
     if (liveTimerRef.current) clearInterval(liveTimerRef.current);
+    if (simulationIntervalRef.current) {
+      clearInterval(simulationIntervalRef.current);
+      simulationIntervalRef.current = null;
+    }
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     if (audioContextRef.current) audioContextRef.current.close().catch(() => {});
     if (speechRecognitionRef.current) {
@@ -939,8 +1060,12 @@ export const TestFeatureNowModal: React.FC<TestFeatureNowModalProps> = ({
       } catch {}
     }
 
-    if (mediaRecorderRef.current && isLiveActive) {
-      mediaRecorderRef.current.stop();
+    if (isLiveActive) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch {}
+      }
       setIsLiveActive(false);
 
       const mimeType = liveWithVideo && MediaRecorder.isTypeSupported('video/webm')
@@ -950,29 +1075,36 @@ export const TestFeatureNowModal: React.FC<TestFeatureNowModalProps> = ({
       const finalDuration = liveSeconds;
 
       setTimeout(async () => {
-        const mediaBlob = new Blob(recordedChunksRef.current, { type: mimeType });
-        const mediaUrl = URL.createObjectURL(mediaBlob);
+        let mediaUrl = '';
+        if (recordedChunksRef.current.length > 0) {
+          const mediaBlob = new Blob(recordedChunksRef.current, { type: mimeType });
+          mediaUrl = URL.createObjectURL(mediaBlob);
+        }
 
-        // Stop all tracks
+        // Stop all tracks and clear canvas timer if any
         if (mediaStreamRef.current) {
+          if ((mediaStreamRef.current as any)._canvasTimer) {
+            clearInterval((mediaStreamRef.current as any)._canvasTimer);
+          }
           mediaStreamRef.current.getTracks().forEach((t) => t.stop());
         }
 
         const finalRawTranscript =
           liveTranscript.trim() ||
-          "Hello, I am testing the live microphone recording with natural pauses and hesitations.";
+          "Sir, enna na, our payment server in Chennai is failing continuous-aa, customer is shouting, please fix immediately!";
 
         setIsProcessingNormalization(true);
         const { normalizedText, naturalSummary, executiveBullets } = await normalizeSpeechText(
           finalRawTranscript
         );
+        if (!isMountedRef.current) return;
         setIsProcessingNormalization(false);
 
         const newRecord: TestVaultRecord = {
           id: `live_${Date.now()}`,
           timestamp: new Date().toLocaleTimeString(),
           createdAtIso: new Date().toISOString(),
-          title: `Live ${liveWithVideo ? 'Video' : 'Voice'} Session (${finalDuration}s)`,
+          title: `Live ${liveWithVideo ? 'Video' : 'Voice'} Session (${finalDuration || 3}s)`,
           testType: 'live_mic',
           mediaUrl,
           isVideo: liveWithVideo,
@@ -1561,6 +1693,22 @@ export const TestFeatureNowModal: React.FC<TestFeatureNowModalProps> = ({
                         />
                         <span>🔊 Live Converted Audio Feedback</span>
                       </label>
+                    </div>
+                  )}
+
+                  {/* Permission or Status Notice Banner */}
+                  {liveNotice && (
+                    <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+                        <span>{liveNotice}</span>
+                      </div>
+                      <button
+                        onClick={() => setLiveNotice(null)}
+                        className="text-amber-400 hover:text-white text-xs px-2 py-0.5 rounded cursor-pointer shrink-0"
+                      >
+                        ✕
+                      </button>
                     </div>
                   )}
 

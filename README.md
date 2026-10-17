@@ -69,16 +69,25 @@ In global enterprise contact centers, cross-border engineering bridges, and dist
 │   ├── App.tsx                  # Master application entry & router
 │   ├── components/
 │   │   ├── GcpConsoleNav.tsx    # GCP Console sidebar navigation & top bar
-│   │   ├── VideoComparison.tsx  # Dual video player with webcam/mic recording & EchoFlow voice conversion
+│   │   ├── GlobalTelemetryBar.tsx # Real-time latency, cadence, and DSP SLA bar
+│   │   ├── VideoComparison.tsx  # Dual video player with webcam/mic recording & natural voice pacing
 │   │   ├── AudioTestbench.tsx   # Live acoustic DSP testbench & spectrum controls
 │   │   ├── DualWaveformCanvas.tsx # Real-time dual-waveform canvas oscilloscope
 │   │   ├── TelemetryHUD.tsx     # Live telemetry metrics HUD
 │   │   ├── PbxCallSimulator.tsx # Two-party PBX call simulator with EchoFlow ON/OFF toggle
 │   │   ├── RoiCalculator.tsx    # Single-source mathematical ROI engine & PDF memo
 │   │   ├── TelephonyAndGcp.tsx  # Telephony webhooks (Twilio/Genesys) & GCP topology
+│   │   ├── TestFeatureNowModal.tsx # Interactive live evaluation modal with 5 testing paths
+│   │   ├── UnifiedVoiceStudio.tsx # Unified studio view combining testbench, video & chatbot
+│   │   ├── UnifiedTelephonyLab.tsx # Unified media & PBX simulation lab
+│   │   ├── UnifiedDocsHub.tsx   # Unified documentation & reference manual hub
+│   │   ├── FloatingGeminiAgent.tsx # Floating interactive engineering assistant & diagnostics
+│   │   ├── CascadingSitemap.tsx # Visual sitemap & architecture explorer
 │   │   ├── OfflineReferenceHub.tsx # Consolidated offline reference vault & test execution matrix
 │   │   ├── MasterDocumentation.tsx # Complete section-by-section operations manual
-│   │   └── CodeInspector.tsx    # In-app codebase viewer & 1-click Claude single-file bundle export
+│   │   └── CodeInspector.tsx    # In-app codebase viewer & 1-click bundle export
+│   └── utils/
+│       └── audioUtils.ts        # RIFF/WAVE header injection for 24kHz PCM audio playback
 └── README.md                    # Project documentation & benchmark overview
 ```
 
@@ -101,9 +110,9 @@ $$\text{Net Annual Savings} = \text{Annual Hours Recovered} \times \text{Loaded 
    - Hours Recovered: $(4,375,000 \times 1.224) / 60 =$ **$89,250$ hours/year**.
    - Net Dollar Savings: $89,250 \times \$28 =$ **$\$2,499,000$ net savings annually**.
 2. **High-Volume BPO Scenario:**
-   - Parameters: 500 seats, 44 calls/day (5,508,744 calls/year), 6.8 min AHT, **18.5% AHT reduction** ($1.258$ min saved/call), $28.00/hr.
-   - Hours Recovered: **$115,500$ hours/year**.
-   - Net Dollar Savings: $115,500 \times \$28 =$ **$\$3,234,000$ net savings annually**.
+   - Parameters: 500 seats, 44 calls/day, 250 work days ($5,500,000$ calls/year), 6.8 min AHT, **18.5% AHT reduction** ($1.258$ min saved/call), $28.00/hr loaded rate.
+   - Hours Recovered: $(5,500,000 \times 1.258) / 60 =$ **$115,317$ hours/year**.
+   - Net Dollar Savings: $115,317 \times \$28 =$ **$\$3,228,876$ net savings annually**.
 
 ---
 

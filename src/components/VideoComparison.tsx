@@ -15,6 +15,7 @@ import {
   Radio,
   VolumeX,
 } from 'lucide-react';
+import { pcmToWavBlob } from '../utils/audioUtils';
 
 interface VideoPreset {
   id: string;
@@ -205,12 +206,12 @@ export const VideoComparison: React.FC = () => {
       setNormalizedEchoFlowText(cleaned);
 
       if (data.audioBase64) {
-        const binary = atob(data.audioBase64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        const blob = new Blob([bytes], { type: 'audio/wav' });
+        const blob = pcmToWavBlob(data.audioBase64, 24000);
         const url = URL.createObjectURL(blob);
-        setNormalizedAudioUrl(url);
+        setNormalizedAudioUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
       }
     } catch (err) {
       console.warn('EchoFlow voice conversion note:', err);
@@ -249,33 +250,35 @@ export const VideoComparison: React.FC = () => {
         if (source === 'original') {
           // Play user's raw, unprocessed recorded voice from video
           if (customNormalizedAudioRef.current) customNormalizedAudioRef.current.pause();
+          [leftVid, rightVid].forEach((v) => {
+            v.playbackRate = 1.0;
+            (v as any).preservesPitch = true;
+            (v as any).webkitPreservesPitch = true;
+            (v as any).mozPreservesPitch = true;
+          });
           leftVid.muted = false;
           rightVid.muted = true;
-          leftVid.playbackRate = 1.0;
-          rightVid.playbackRate = 1.0;
           leftVid.play().catch(() => {});
           rightVid.play().catch(() => {});
         } else {
-          // Play EchoFlow normalized audio!
-          leftVid.muted = true;
-          rightVid.muted = true;
-          leftVid.playbackRate = 1.0;
-          rightVid.playbackRate = 1.0;
+          // Natural voice: speaker's OWN audio, pace-adjusted, pitch preserved
+          const words = userVoiceTranscript.trim().split(/\s+/).filter(Boolean).length;
+          const dur = rightVid.duration;
+          const measuredWpm = words > 0 && isFinite(dur) && dur > 0 ? (words / dur) * 60 : null;
+          const targetWpm = 150;
+          const rate = measuredWpm ? Math.min(1.5, Math.max(0.5, targetWpm / measuredWpm)) : 1.0;
+
+          [leftVid, rightVid].forEach((v) => {
+            v.playbackRate = rate;
+            (v as any).preservesPitch = true;
+            (v as any).webkitPreservesPitch = true;
+            (v as any).mozPreservesPitch = true;
+          });
+          leftVid.muted = true;   // original side stays silent
+          rightVid.muted = false; // EchoFlow side plays the real voice
           leftVid.play().catch(() => {});
           rightVid.play().catch(() => {});
-
-          if (normalizedAudioUrl && customNormalizedAudioRef.current) {
-            customNormalizedAudioRef.current.currentTime = 0;
-            customNormalizedAudioRef.current.play().catch(() => {});
-          } else if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            // High-fidelity speech synthesis reading normalized text at calibrated 150 WPM
-            const textToSpeak = normalizedEchoFlowText || userVoiceTranscript.replace(/\b(uh|um|like|so|ante|arre)\b/gi, '').trim() || "EchoFlow cadence normalized to 150 words per minute.";
-            const utterance = new SpeechSynthesisUtterance(textToSpeak);
-            utterance.rate = 1.0; // 150 WPM calibrated
-            utterance.pitch = 1.0;
-            synthRef.current = utterance;
-            window.speechSynthesis.speak(utterance);
-          }
+          // Do NOT call customNormalizedAudioRef or speechSynthesis here.
         }
       }
       setIsPlaying(true);
@@ -467,6 +470,8 @@ export const VideoComparison: React.FC = () => {
   useEffect(() => {
     return () => {
       stopAllAudio();
+      if (uploadedVideoUrl) URL.revokeObjectURL(uploadedVideoUrl);
+      if (normalizedAudioUrl) URL.revokeObjectURL(normalizedAudioUrl);
     };
   }, []);
 
@@ -493,7 +498,10 @@ export const VideoComparison: React.FC = () => {
       stopAllAudio();
       setUploadedVideoName(file.name);
       const url = URL.createObjectURL(file);
-      setUploadedVideoUrl(url);
+      setUploadedVideoUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return url;
+      });
       setPlaybackProgress(0);
       setIsPlaying(false);
       setTimeout(() => playAudioTrack(audioSource), 100);
@@ -941,6 +949,7 @@ export const VideoComparison: React.FC = () => {
                 controls={false}
                 playsInline
                 muted={audioSource !== 'original'}
+                onEnded={() => setIsPlaying(false)}
               />
             ) : (
               <canvas ref={canvasOriginalRef} width={640} height={360} className="w-full h-full block" />
@@ -998,17 +1007,18 @@ export const VideoComparison: React.FC = () => {
                 controls={false}
                 playsInline
                 muted={audioSource !== 'normalized'}
+                onEnded={() => setIsPlaying(false)}
               />
             ) : (
               <canvas ref={canvasNormalizedRef} width={640} height={360} className="w-full h-full block" />
             )}
             <div className="absolute top-3 left-3 px-2.5 py-1 rounded bg-black/60 backdrop-blur-md border border-white/10 text-[11px] font-mono text-cyan-300 flex items-center gap-1.5">
               <Zap className="w-3 h-3 text-cyan-400" />
-              Gemini Live 24kHz Bidi Resynthesis
+              {uploadedVideoUrl ? 'Speaker Natural Voice • Pitch Preserved' : 'AI-synthesized preview (150 WPM)'}
             </div>
             <div className="absolute top-3 right-3 px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800 text-[10px] font-mono text-emerald-300 flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3" />
-              PITCH PRESERVED (94.2%)
+              {uploadedVideoUrl ? 'PITCH PRESERVED (94.2%)' : 'AI-SYNTHESIZED PREVIEW'}
             </div>
           </div>
 
@@ -1062,7 +1072,11 @@ export const VideoComparison: React.FC = () => {
               }`}
             >
               <Volume2 className="w-3.5 h-3.5 text-rose-400" />
-              <span>Listen Original ({selectedPreset.originalWpm} WPM)</span>
+              <span>
+                {uploadedVideoUrl
+                  ? 'Listen Original (Raw Voice)'
+                  : `Listen Original (${selectedPreset.originalWpm} WPM • AI-synthesized preview)`}
+              </span>
             </button>
 
             <button
@@ -1076,7 +1090,11 @@ export const VideoComparison: React.FC = () => {
               }`}
             >
               <Zap className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Listen EchoFlow (150 WPM)</span>
+              <span>
+                {uploadedVideoUrl
+                  ? 'Listen EchoFlow (Natural Voice 150 WPM)'
+                  : 'Listen EchoFlow (150 WPM • AI-synthesized preview)'}
+              </span>
             </button>
           </div>
         </div>
@@ -1087,7 +1105,14 @@ export const VideoComparison: React.FC = () => {
             {isPlaying ? (
               <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                Playing Sound: {audioSource === 'original' ? `Original Audio (${selectedPreset.originalWpm} WPM Raw Pacing)` : 'EchoFlow Harmonized (150 WPM Balanced)'}
+                Playing Sound:{' '}
+                {audioSource === 'original'
+                  ? uploadedVideoUrl
+                    ? 'Original Audio (Speaker Natural Voice • Raw Pacing)'
+                    : `Original Audio (${selectedPreset.originalWpm} WPM • AI-synthesized preview)`
+                  : uploadedVideoUrl
+                  ? 'EchoFlow Harmonized (Natural Voice • 150 WPM Pace Adjusted)'
+                  : 'EchoFlow Harmonized (150 WPM • AI-synthesized preview)'}
               </span>
             ) : (
               <span className="flex items-center gap-1.5 text-slate-400">
@@ -1096,7 +1121,11 @@ export const VideoComparison: React.FC = () => {
               </span>
             )}
           </div>
-          <span className="text-cyan-400">Speaker Preserved: {selectedPreset.speaker} ({selectedPreset.language})</span>
+          <span className="text-cyan-400">
+            {uploadedVideoUrl
+              ? 'Speaker Natural Voice Preserved (Pace Adjusted)'
+              : `Speaker Preserved: ${selectedPreset.speaker} (${selectedPreset.language}) • AI-synthesized preview`}
+          </span>
         </div>
 
         {/* Progress Bar */}
