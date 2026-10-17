@@ -48,7 +48,20 @@ gcloud services enable \
     cloudbuild.googleapis.com \
     --project "${PROJECT_ID}"
 
-echo -e "\n${CYAN}[2/3] Building and Deploying to Google Cloud Run...${NC}"
+echo -e "\n${CYAN}[2/3] Building and Deploying Full-Stack Service (React UI + Express /api + WebSocket Gateway)...${NC}"
+# Deployment scope: Both the React SPA frontend (dist/) and the backend API (/api/*, /ws/stream) are served by Cloud Run.
+
+# Determine secret manager usage:
+SECRETS_FLAG=""
+if gcloud secrets describe GEMINI_API_KEY --project "${PROJECT_ID}" >/dev/null 2>&1; then
+    echo -e "${GREEN}Using Google Secret Manager: GEMINI_API_KEY:latest${NC}"
+    SECRETS_FLAG="--set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest"
+    ENV_VARS="APP_ENV=production"
+else
+    echo -e "${YELLOW}Notice: Secret 'GEMINI_API_KEY' not found in Secret Manager; falling back to env var.${NC}"
+    ENV_VARS="APP_ENV=production,GEMINI_API_KEY=${GEMINI_API_KEY:-}"
+fi
+
 # Deploy service directly from source with WebSocket-optimized flags
 gcloud run deploy "${SERVICE_NAME}" \
     --source . \
@@ -63,7 +76,8 @@ gcloud run deploy "${SERVICE_NAME}" \
     --session-affinity \
     --min-instances 1 \
     --max-instances 10 \
-    --set-env-vars "APP_ENV=production,GEMINI_API_KEY=${GEMINI_API_KEY:-}" \
+    --set-env-vars "${ENV_VARS}" \
+    ${SECRETS_FLAG} \
     --project "${PROJECT_ID}"
 
 echo -e "\n${CYAN}[3/3] Retrieving Service URL & Health Probe...${NC}"

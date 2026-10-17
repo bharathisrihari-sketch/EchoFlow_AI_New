@@ -75,58 +75,49 @@ export const GlobalTelemetryBar: React.FC<GlobalTelemetryBarProps> = ({
         {/* Center: Key Metric Pills */}
         <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
           {/* Latency Pill */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/80 border border-cyan-500/30 shrink-0">
-            <Clock className="w-3.5 h-3.5 text-cyan-400" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 shrink-0">
+            <Clock className={`w-3.5 h-3.5 ${isStreaming ? 'text-cyan-400' : 'text-slate-500'}`} />
             <span className="text-[11px] font-mono text-slate-400">Latency:</span>
-            <span className="text-xs font-bold font-mono text-cyan-300">
-              {telemetry.latencyMs} ms
+            <span className={`text-xs font-bold font-mono ${isStreaming ? 'text-cyan-300' : 'text-slate-400'}`}>
+              {isStreaming ? `${telemetry.latencyMs} ms` : 'No active session'}
             </span>
           </div>
 
           {/* Cadence Pill */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/80 border border-purple-500/30 shrink-0">
-            <Activity className="w-3.5 h-3.5 text-purple-400" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 shrink-0">
+            <Activity className={`w-3.5 h-3.5 ${isStreaming ? 'text-purple-400' : 'text-slate-500'}`} />
             <span className="text-[11px] font-mono text-slate-400">Cadence:</span>
-            <span className="text-xs font-bold font-mono text-purple-300">
+            <span className={`text-xs font-bold font-mono ${isStreaming ? 'text-purple-300' : 'text-slate-300'}`}>
               {telemetry.targetPaceWpm} WPM
             </span>
-            <span className="text-[10px] font-mono text-emerald-400">
-              (-{telemetry.cadenceVarianceReduction}%)
-            </span>
+            {isStreaming && (
+              <span className="text-[10px] font-mono text-emerald-400">
+                (-{telemetry.cadenceVarianceReduction}%)
+              </span>
+            )}
           </div>
 
           {/* Pitch Preservation Pill */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/80 border border-emerald-500/30 shrink-0">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 shrink-0">
+            <Sparkles className={`w-3.5 h-3.5 ${isStreaming ? 'text-emerald-400' : 'text-slate-500'}`} />
             <span className="text-[11px] font-mono text-slate-400">F0 Pitch:</span>
-            <span className="text-xs font-bold font-mono text-emerald-300">
-              {telemetry.pitchPreservationIndex}%
+            <span className={`text-xs font-bold font-mono ${isStreaming ? 'text-emerald-300' : 'text-slate-400'}`}>
+              {isStreaming ? `${telemetry.pitchPreservationIndex}%` : 'Standby'}
             </span>
           </div>
 
           {/* Intelligibility Pill */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/80 border border-amber-500/30 shrink-0 hidden sm:flex">
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 shrink-0 hidden sm:flex">
+            <Zap className={`w-3.5 h-3.5 ${isStreaming ? 'text-amber-400' : 'text-slate-500'}`} />
             <span className="text-[11px] font-mono text-slate-400">Intelligibility:</span>
-            <span className="text-xs font-bold font-mono text-amber-300">
-              +{telemetry.phoneticIntelligibilityLift}%
+            <span className={`text-xs font-bold font-mono ${isStreaming ? 'text-amber-300' : 'text-slate-400'}`}>
+              {isStreaming ? `+${telemetry.phoneticIntelligibilityLift}%` : 'Standby'}
             </span>
           </div>
         </div>
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
-          {onOpenTestFeature && (
-            <button
-              onClick={onOpenTestFeature}
-              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-lg bg-gradient-to-r from-amber-400 via-rose-500 to-cyan-400 text-slate-950 shadow-md hover:scale-105 active:scale-95 transition-all shrink-0 animate-pulse border border-white/20"
-              title="Test 3 Live Examples: English, Tamil, Telugu"
-            >
-              <Zap className="w-3.5 h-3.5 fill-current" />
-              <span>Test Feature Now</span>
-            </button>
-          )}
-
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="flex items-center gap-1 text-[11px] font-mono text-slate-400 hover:text-cyan-300 px-2 py-1 rounded bg-slate-800/80 hover:bg-slate-800 transition-all border border-slate-700"

@@ -148,7 +148,7 @@ export const RecommendedTestOrder: React.FC<RecommendedTestOrderProps> = ({
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-white">
-              Recommended Test Order for Hackathon Judges
+              Recommended Test Order for Presenters & Evaluators
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 mt-1">
               Follow this 7-step sequence to systematically verify core capabilities within 7 to 9 minutes.

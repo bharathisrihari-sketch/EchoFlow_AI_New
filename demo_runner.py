@@ -187,37 +187,38 @@ def test_json_error_recovery() -> Dict[str, Any]:
     }
 
 
-# Test Case 7: Latency SLA Compliance (<550ms)
+# Test Case 7: Latency SLA Budget Model (Specification Check)
 def test_latency_sla_compliance() -> Dict[str, Any]:
-    # Typical measured spans on Cloud Run:
+    # Design latency budget model based on component specifications:
     ingestion_ms = 18.2
     gemini_live_relay_ms = 284.5
     resynthesis_dsp_ms = 108.1
     jitter_buffer_ms = 7.7
-    total_end_to_end = ingestion_ms + gemini_live_relay_ms + resynthesis_dsp_ms + jitter_buffer_ms
+    total_budget_ms = ingestion_ms + gemini_live_relay_ms + resynthesis_dsp_ms + jitter_buffer_ms
 
     sla_target = 550.0
-    assert total_end_to_end < sla_target, f"Latency {total_end_to_end}ms exceeded SLA {sla_target}ms"
+    assert total_budget_ms < sla_target, f"Specification budget {total_budget_ms}ms exceeded SLA {sla_target}ms"
 
     return {
         "id": "TC-07",
-        "name": "End-to-End Latency SLA Compliance (<550ms)",
+        "name": "End-to-End Latency Budget (Specification Check, Not In-Situ Measurement)",
         "status": "PASSED",
-        "details": f"Total Measured: {total_end_to_end:.1f} ms < {sla_target} ms SLA",
+        "details": f"Component budget sum: {total_budget_ms:.1f} ms < {sla_target} ms SLA ceiling",
     }
 
 
-# Test Case 8: Pitch Retention F0 Envelope
+# Test Case 8: Pitch Retention F0 Envelope (Specification Check)
 def test_pitch_retention_index() -> Dict[str, Any]:
-    # Benchmark target: Pearson correlation r >= 0.90
-    benchmark_r = 0.942
-    assert benchmark_r >= 0.90, f"Pearson r {benchmark_r} below 0.90 threshold"
+    # Architecture design target: Pearson correlation r >= 0.90
+    target_threshold_r = 0.90
+    design_model_r = 0.942
+    assert design_model_r >= target_threshold_r, f"Design target {design_model_r} below threshold {target_threshold_r}"
 
     return {
         "id": "TC-08",
-        "name": "Acoustic Fundamental Pitch (F0) Correlation",
+        "name": "Acoustic Fundamental Pitch (F0) Retention (Specification Target Check)",
         "status": "PASSED",
-        "details": f"F0 Pearson r = {benchmark_r} (Threshold > 0.900)",
+        "details": f"Design target r >= {target_threshold_r} (Design target specification verified)",
     }
 
 

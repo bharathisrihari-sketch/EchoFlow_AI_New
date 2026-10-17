@@ -31,6 +31,7 @@ export interface TelemetryData {
   activeLanguage?: LanguageKey;
   pacingStrategy?: string;
   systemInstructionPreview?: string;
+  hasActiveSession?: boolean;
 }
 
 export interface AudioScenario {

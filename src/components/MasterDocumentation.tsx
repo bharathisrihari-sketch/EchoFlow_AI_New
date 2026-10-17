@@ -354,35 +354,35 @@ const MANUAL_SECTIONS: ManualSection[] = [
     title: 'Deliverables & AI Codebase Bundle',
     icon: FileCode,
     overview:
-      'In-browser source code viewer and one-click downloader for all submission deliverables, with a dedicated single-file Claude AI bundle.',
+      'In-browser source code viewer and one-click downloader for all submission deliverables, with a dedicated single-file Local Backup bundle.',
     features: [
       'In-browser syntax-highlighted inspector for all 8 repository files.',
-      'Single-File Consolidated Bundle formatted specifically for Claude, ChatGPT, and Cursor.',
+      'Single-File Consolidated Bundle formatted specifically for Local Backup and offline inspection.',
       'Individual file downloader and 1-click "Download All Deliverables" archive.',
       'Complete production artifacts: FastAPI main.py, Streamlit app.py, Dockerfile, shell scripts.',
     ],
     whatToClick: [
       'Click "Files" in top navigation.',
       'Switch between file tabs: main.py, app.py, demo_runner.py, MASTER_USER_MANUAL.md, Dockerfile, requirements.txt, cloud_deploy.sh, README.md.',
-      'Click "Download for Claude / AI Tool" to export the consolidated single-file bundle.',
-      'Click "Copy for Claude" to copy the entire codebase bundle to the clipboard.',
+      'Click "Download Local Backup" to export the consolidated single-file bundle.',
+      'Click "Copy Local Backup" to copy the entire codebase bundle to the clipboard.',
       'Click "Download All Deliverables" to export the individual files.',
     ],
     whatToInput: 'File tab selection.',
     whatOutputProduces: [
       'Syntax-highlighted production Python, Dockerfile, shell script, and markdown code.',
       'Direct browser file download via Blob URLs.',
-      'Single-file Claude bundle with standardized <file path="..."> delimiters.',
+      'Single-file Local Backup bundle with standardized <file path="..."> delimiters.',
     ],
     howToTest:
-      'Click "Download for Claude / AI Tool" and open the downloaded bundle in Notepad. Verify that all 8 files are included with XML delimiters.',
+      'Click "Download Local Backup" and open the downloaded bundle in Notepad. Verify that all 8 files are included with XML delimiters.',
     expectedBenchmark: 'All 8 repository files load and download without missing dependencies.',
     businessBenefits: [
       'Gives technical reviewers complete transparency with 100% auditable production source code.',
       'Accelerates developer adoption by providing plug-and-play AI prompt bundles.',
     ],
     technicalBenefits: [
-      'Standardized XML/Markdown packaging compatible with Anthropic Claude, Cursor, and OpenAI.',
+      'Standardized XML/Markdown packaging compatible with Local Backup preservation and AI tools.',
       'Fully dockerized container definition for instant deployment to Google Cloud Run.',
     ],
   },

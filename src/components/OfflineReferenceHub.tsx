@@ -123,12 +123,12 @@ const TEST_RESULTS_MATRIX: TestResultItem[] = [
   },
   {
     id: 't11',
-    name: 'Claude / AI Assistant Single-File Bundle',
+    name: 'Local Backup Single-File Bundle',
     category: 'Security',
     targetSla: 'Valid XML Delimiters',
-    measuredResult: '8 Files Consolidated',
+    measuredResult: 'Complete Repository',
     status: 'PASSED',
-    details: 'Single-file bundle ready for Anthropic Claude Projects, ChatGPT, Cursor.',
+    details: 'Single-file bundle ready for offline storage and AI models.',
   },
 ];
 
@@ -215,7 +215,7 @@ Voiceover:
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-3xl leading-relaxed">
               All offline documentation, 2.5-minute video storyboard script, exhaustive benchmark test
-              execution results, GCP deployment manifests, and Claude AI bundles consolidated into one page.
+              execution results, GCP deployment manifests, and Local Backup bundles consolidated into one page.
             </p>
           </div>
 

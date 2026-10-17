@@ -161,7 +161,7 @@ export const JudgeGuideView: React.FC<JudgeGuideViewProps> = ({
         <div className="max-w-3xl space-y-3">
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-mono font-bold uppercase tracking-wider">
-              Hackathon Judge Executive Briefing
+              Presenter Executive Briefing
             </span>
             <span className="text-xs text-slate-400 font-mono">
               ~9 Minutes Recommended Review
@@ -205,11 +205,11 @@ export const JudgeGuideView: React.FC<JudgeGuideViewProps> = ({
 
             <a
               href="/api/download-bundle"
-              download="echoflow_codebase_bundle_for_claude_chatgpt.md"
+              download="echoflow_local_backup_bundle.md"
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-xs font-mono font-bold transition-all"
             >
               <FileCode className="w-3.5 h-3.5 text-purple-400" />
-              <span>Download Code Bundle</span>
+              <span>Download Local Backup</span>
             </a>
           </div>
         </div>

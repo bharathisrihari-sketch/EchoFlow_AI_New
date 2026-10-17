@@ -3,6 +3,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper functions for authentication and ownership
     function isSignedIn() {
       return request.auth != null;
     }
@@ -11,37 +12,51 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Root test collection for connection validation
+    // Validate size and structure of test result records
+    function isValidTestResult() {
+      let data = request.resource.data;
+      return isSignedIn()
+        && data.userId == request.auth.uid
+        && data.keys().hasAll(['userId', 'testType', 'timestamp', 'status'])
+        && data.testType is string
+        && data.testType.size() > 0 && data.testType.size() <= 100
+        && data.status is string
+        && data.status in ['passed', 'failed', 'skipped', 'running']
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 2000))
+        && (!('rawText' in data) || (data.rawText is string && data.rawText.size() <= 5000))
+        && (!('convertedText' in data) || (data.convertedText is string && data.convertedText.size() <= 5000));
+    }
+
+    // Connection probe: requires authentication for read and write
     match /test/connection {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow read, write: if isSignedIn();
     }
 
-    // Benchmark & Evaluation Test Results Vault
+    // Benchmark & Evaluation Test Results Vault: authenticated only with schema and size limits
     match /test_results/{testId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isValidTestResult();
+      allow update: if isValidTestResult() && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
-    // User profiles
+    // User profiles & private subcollections: strictly owner-only
     match /users/{userId} {
       allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.uid == userId;
-      allow update: if isOwner(userId) && request.resource.data.uid == userId;
+      allow create, update: if isOwner(userId) && request.resource.data.uid == userId;
       allow delete: if isOwner(userId);
 
       // User transcriptions subcollection
       match /transcriptions/{transcriptionId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && request.resource.data.userId == userId;
-        allow update: if isOwner(userId) && request.resource.data.userId == userId;
+        allow create, update: if isOwner(userId) && request.resource.data.userId == userId;
         allow delete: if isOwner(userId);
       }
 
       // User chat messages subcollection
       match /chat_messages/{messageId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && request.resource.data.userId == userId;
-        allow update: if isOwner(userId) && request.resource.data.userId == userId;
+        allow create, update: if isOwner(userId) && request.resource.data.userId == userId;
         allow delete: if isOwner(userId);
       }
     }

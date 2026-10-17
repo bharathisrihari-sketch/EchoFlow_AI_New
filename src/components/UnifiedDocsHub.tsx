@@ -84,7 +84,7 @@ export const UnifiedDocsHub: React.FC<UnifiedDocsHubProps> = ({
             }`}
           >
             <FileCode className="w-3.5 h-3.5" />
-            <span>Codebase & Claude Bundle</span>
+            <span>Codebase & Local Backup</span>
             <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-950 text-amber-400 border border-amber-800 hidden sm:inline">
               XML Delimiters
             </span>

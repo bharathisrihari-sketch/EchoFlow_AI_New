@@ -6,9 +6,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { GcpConsoleNav, AppTab } from './components/GcpConsoleNav';
-import { GuidedFeatureTour } from './components/GuidedFeatureTour';
-import { NewUserNavigationFlow } from './components/NewUserNavigationFlow';
-import { PageEchoFlowToggle } from './components/PageEchoFlowToggle';
+import { JudgeGuideView } from './components/JudgeGuideView';
+import { QuickTestView } from './components/QuickTestView';
+import { MyVoiceView } from './components/MyVoiceView';
+import { NearLiveView } from './components/NearLiveView';
+import { RecommendedTestOrder } from './components/RecommendedTestOrder';
+import { SelfTestView } from './components/SelfTestView';
 import { UnifiedVoiceStudio } from './components/UnifiedVoiceStudio';
 import { VideoComparison } from './components/VideoComparison';
 import { PbxCallSimulator } from './components/PbxCallSimulator';
@@ -24,7 +27,6 @@ import { CodeInspector } from './components/CodeInspector';
 import { FirebaseAuthBar } from './components/FirebaseAuthBar';
 import { GlobalTelemetryBar } from './components/GlobalTelemetryBar';
 import { FloatingGeminiAgent } from './components/FloatingGeminiAgent';
-import { TestFeatureNowModal } from './components/TestFeatureNowModal';
 import { HowPageWorksPanel } from './components/HowPageWorksPanel';
 import { NavigationStepper, NextStepFooterButton } from './components/NavigationStepper';
 import { FirstVisitWelcomeModal } from './components/FirstVisitWelcomeModal';
@@ -41,26 +43,23 @@ import {
 import {
   ChevronRight,
   Server,
-  Sparkles,
+  AlertTriangle,
+  Play,
   ArrowRight,
   Zap,
-  Globe2,
-  CheckCircle2,
-  Play,
 } from 'lucide-react';
 
 export default function App() {
-  // Navigation state synchronized with URL hash (e.g. #/try/normalizer, #/call, #/help/code)
+  // Navigation state synchronized with URL hash
   const [navState, setNavState] = useState<NavState>(() => {
     if (typeof window !== 'undefined') {
       return parseHash(window.location.hash);
     }
-    return { section: 'start' };
+    return { section: 'start', screen: 'judge_guide' };
   });
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [isTestFeatureOpen, setIsTestFeatureOpen] = useState(false);
 
   // Persistent Language State
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageKey>(() => getStoredLanguage());
@@ -74,30 +73,64 @@ export default function App() {
   const [voicePersona, setVoicePersona] = useState('Puck');
   const [fillerSuppression, setFillerSuppression] = useState(true);
 
-  // Real-Time Telemetry State
+  // Real-Time Telemetry State: Starts in idle state without fake constants
   const [telemetry, setTelemetry] = useState<TelemetryData>(() => {
     const lang = getStoredLanguage();
     const cfg = LANGUAGE_CONFIGS[lang];
     return {
-      latencyMs: 418,
+      latencyMs: 0,
       targetPaceWpm: cfg?.targetPaceWpm || 150,
-      originalPaceWpm: 228,
-      cadenceVarianceReduction: 35.4,
-      pitchPreservationIndex: 94.2,
-      phoneticIntelligibilityLift: 32.6,
+      originalPaceWpm: 0,
+      cadenceVarianceReduction: 0,
+      pitchPreservationIndex: 94,
+      phoneticIntelligibilityLift: 0,
       bufferHealth: 'optimal',
-      jitterMs: 7.8,
-      packetCount: 1420,
+      jitterMs: 0,
+      packetCount: 0,
       activeLanguage: lang,
       pacingStrategy: cfg?.pacingStrategy || 'Syllable Stress Regularization',
+      hasActiveSession: false,
       latencyBreakdown: {
-        ingestion: 18,
-        geminiLiveRelay: 284,
-        resynthesisDsp: 108,
-        jitterBuffer: 8,
+        ingestion: 0,
+        geminiLiveRelay: 0,
+        resynthesisDsp: 0,
+        jitterBuffer: 0,
       },
     };
   });
+
+  // Track visited step numbers for JudgeGuideView
+  const [visitedStepList, setVisitedStepList] = useState<number[]>([0]);
+
+  // Sync telemetry with /api/stats when available
+  useEffect(() => {
+    let isMounted = true;
+    const fetchBackendStats = async () => {
+      try {
+        const res = await fetch('/api/stats');
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          if (data.activeStreams > 0 || (data.latency_stats && data.latency_stats.count > 0)) {
+            setTelemetry((prev) => ({
+              ...prev,
+              hasActiveSession: data.activeStreams > 0,
+              latencyMs: data.avgLatencyMs || data.latency_stats?.mean_ms || prev.latencyMs,
+              packetCount: data.processedPackets || prev.packetCount,
+            }));
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    fetchBackendStats();
+    const timer = setInterval(fetchBackendStats, 5000);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, []);
 
   // Listen to browser Back/Forward navigation
   useEffect(() => {
@@ -121,8 +154,47 @@ export default function App() {
 
   // Backwards-compatible navigation handler for child components that pass legacy AppTab
   const handleLegacyNavigate = (tab: AppTab | string) => {
-    const mapped = LEGACY_TAB_MAP[tab] || { section: 'start' };
+    const mapped = LEGACY_TAB_MAP[tab] || { section: 'start', screen: 'judge_guide' };
     handleNavigate(mapped);
+  };
+
+  // Handler for numbered steps (1-9) from JudgeGuideView and RecommendedTestOrder
+  const handleStepNavigate = (stepNumber: number) => {
+    setVisitedStepList((prev) => (prev.includes(stepNumber) ? prev : [...prev, stepNumber]));
+    switch (stepNumber) {
+      case 0:
+        handleNavigate({ section: 'start', screen: 'judge_guide' });
+        break;
+      case 1:
+        handleNavigate({ section: 'try', sub: 'quick_test', screen: 'quick_test' });
+        break;
+      case 2:
+        handleNavigate({ section: 'try', sub: 'normalizer', screen: 'normalizer' });
+        break;
+      case 3:
+        handleNavigate({ section: 'try', sub: 'my_voice', screen: 'my_voice' });
+        break;
+      case 4:
+        handleNavigate({ section: 'try', sub: 'video', screen: 'video' });
+        break;
+      case 5:
+        handleNavigate({ section: 'try', sub: 'near_live', screen: 'near_live' });
+        break;
+      case 6:
+        handleNavigate({ section: 'call', sub: 'pbx', screen: 'call' });
+        break;
+      case 7:
+        handleNavigate({ section: 'value', sub: 'roi', screen: 'roi' });
+        break;
+      case 8:
+        handleNavigate({ section: 'how', sub: 'architecture', screen: 'how' });
+        break;
+      case 9:
+        handleNavigate({ section: 'how', sub: 'ethics', screen: 'trust' });
+        break;
+      default:
+        handleNavigate({ section: 'start', screen: 'judge_guide' });
+    }
   };
 
   const handleLanguageChange = (newLang: LanguageKey) => {
@@ -139,47 +211,25 @@ export default function App() {
         systemInstructionPreview: cfg.systemInstruction.slice(0, 100) + '...',
       }));
     }
-
-    // Update backend language configuration
-    fetch('/api/language-config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ language: newLang }),
-    }).catch((err) => console.warn('Language sync error:', err));
   };
 
-  // Fetch initial telemetry stats from server
-  useEffect(() => {
-    fetch('/api/stats')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.avgLatencyMs) {
-          setTelemetry((prev) => ({
-            ...prev,
-            latencyMs: Math.round(data.avgLatencyMs),
-            cadenceVarianceReduction: data.cadenceVarianceReductionPct || 35.4,
-            pitchPreservationIndex: data.pitchPreservationIndexPct || 94.2,
-          }));
-        }
-      })
-      .catch((err) => console.log('Stats polling note:', err));
-  }, []);
-
-  // Dynamic Breadcrumb and Page Title
-  const getSectionTitle = (section: NavSection): string => {
-    switch (section) {
+  // Breadcrumbs title helpers
+  const getSectionTitle = (sec: NavSection): string => {
+    switch (sec) {
       case 'start':
-        return 'Getting Started';
+        return '0. Presenter Guide';
       case 'try':
-        return 'Try Voice Conversion';
+        return 'Voice Normalization';
       case 'call':
-        return 'In a Call (PBX Simulation)';
+        return '6. In a Call';
       case 'value':
-        return 'Enterprise ROI & Value';
+        return '7. Business Value';
       case 'how':
         return 'How It Works';
       case 'help':
-        return 'Documentation & Help';
+        return 'Reference & Diagnostics';
+      case 'not_found':
+        return 'Page Not Found';
       default:
         return 'EchoFlow AI';
     }
@@ -199,13 +249,13 @@ export default function App() {
   }, [navState]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200 pb-16 md:pb-0">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
       {/* 1. First-Visit Welcome Modal */}
       <FirstVisitWelcomeModal
-        onStartTour={() => handleNavigate({ section: 'start' })}
+        onStartTour={() => handleNavigate({ section: 'start', screen: 'judge_guide' })}
       />
 
-      {/* 2. Top Navigation Bar (Replacing Heavy Sidebar Drawer) */}
+      {/* 2. Left Sidebar (Desktop) + Mobile Drawer */}
       <GcpConsoleNav
         navState={navState}
         onNavigate={handleNavigate}
@@ -213,223 +263,221 @@ export default function App() {
         onLanguageChange={handleLanguageChange}
         isStreaming={isStreaming}
         latencyMs={telemetry.latencyMs}
-        onOpenTestFeature={() => setIsTestFeatureOpen(true)}
       />
 
-      {/* 3. Sub-Header: Breadcrumbs & Cloud Run Service Status */}
-      <div className="bg-slate-900/60 border-b border-slate-800/80 px-4 sm:px-6 py-2 flex items-center justify-between text-xs">
-        <div className="flex items-center gap-1.5 text-slate-400 font-mono text-[11px] truncate">
-          <span className="text-slate-300">Google Cloud</span>
-          <ChevronRight className="w-3 h-3 text-slate-600" />
-          <span className="text-slate-300">EchoFlow AI</span>
-          <ChevronRight className="w-3 h-3 text-slate-600" />
-          <span className="text-cyan-400 font-semibold">{getSectionTitle(navState.section)}</span>
-          {navState.sub && (
-            <>
-              <ChevronRight className="w-3 h-3 text-slate-600" />
-              <span className="text-emerald-400 font-semibold">{getSubTitle(navState)}</span>
-            </>
-          )}
+      {/* 3. Main Application Column */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Top Header / Sub-Header: Breadcrumbs & Gateway Service Status */}
+        <div className="bg-slate-900/60 border-b border-slate-800/80 px-4 sm:px-6 py-2.5 flex items-center justify-between text-xs shrink-0">
+          <div className="flex items-center gap-1.5 text-slate-400 font-mono text-[11px] truncate">
+            <span className="text-slate-300">Google Cloud</span>
+            <ChevronRight className="w-3 h-3 text-slate-600" />
+            <span className="text-slate-300">EchoFlow AI</span>
+            <ChevronRight className="w-3 h-3 text-slate-600" />
+            <span className="text-cyan-400 font-semibold">{getSectionTitle(navState.section)}</span>
+            {navState.sub && (
+              <>
+                <ChevronRight className="w-3 h-3 text-slate-600" />
+                <span className="text-emerald-400 font-semibold">{getSubTitle(navState)}</span>
+              </>
+            )}
+          </div>
+
+          <div className="hidden sm:flex items-center gap-3 text-[11px] font-mono text-slate-400">
+            <span className="flex items-center gap-1">
+              <Server className="w-3 h-3 text-slate-400" />
+              <span>Cloud Run Gateway</span>
+            </span>
+            <span className="text-slate-600">•</span>
+            <span className={isStreaming ? "text-cyan-400 font-bold" : "text-slate-500 font-medium"}>
+              {isStreaming ? 'Gemini Live Bidi Active' : 'No active session'}
+            </span>
+          </div>
         </div>
 
-        <div className="hidden sm:flex items-center gap-3 text-[11px] font-mono text-slate-400">
-          <span className="flex items-center gap-1">
-            <Server className="w-3 h-3 text-emerald-400" />
-            <span>Cloud Run (asia-southeast1)</span>
-          </span>
-          <span className="text-slate-600">•</span>
-          <span className="text-cyan-400 font-bold">Gemini Live Bidi Active</span>
-        </div>
-      </div>
+        {/* 4. Firebase Authentication Status Bar */}
+        <FirebaseAuthBar />
 
-      {/* 4. Firebase Authentication Status Bar */}
-      <FirebaseAuthBar />
-
-      {/* 5. Telemetry HUD Bar */}
-      <GlobalTelemetryBar
-        telemetry={telemetry}
-        isStreaming={isStreaming}
-        onNavigateToStudio={() => handleNavigate({ section: 'try', sub: 'normalizer' })}
-        currentTab={navState.section as any}
-        onOpenTestFeature={() => setIsTestFeatureOpen(true)}
-      />
-
-      {/* 6. Main Workspace Container with 5-Step Stepper */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Progress Stepper ("Step X of 5") */}
-        <NavigationStepper
-          navState={navState}
-          onNavigate={handleNavigate}
+        {/* 5. Telemetry HUD Bar */}
+        <GlobalTelemetryBar
+          telemetry={telemetry}
+          isStreaming={isStreaming}
+          onNavigateToStudio={() => handleNavigate({ section: 'try', sub: 'normalizer' })}
+          currentTab={navState.section as any}
         />
 
-        {/* SECTION 1: START */}
-        {navState.section === 'start' && (
-          <div className="space-y-6 animate-in fade-in-50 duration-200">
-            {/* Plain-Language How This Page Works Panel */}
-            <HowPageWorksPanel pageKey="start" />
+        {/* 6. Main Content Area */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          {/* Progress Stepper ("Step X of 5") */}
+          {navState.section !== 'not_found' && (
+            <NavigationStepper
+              navState={navState}
+              onNavigate={handleNavigate}
+            />
+          )}
 
-            {/* Intro Hero Banner */}
-            <div className="bg-gradient-to-r from-cyan-950/70 via-slate-900 to-emerald-950/60 border border-cyan-500/30 rounded-2xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
-              <div className="max-w-3xl space-y-4">
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[11px] font-mono font-bold uppercase tracking-wider">
-                    EchoFlow AI 2026
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">
-                    Hack2skill AI Builder Cup
-                  </span>
-                </div>
-
-                <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
-                  Natural Voice Pitch-Preserving Speech Cadence Normalization
-                </h1>
-
-                <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-                  Turn hurried, high-stress, or dialect-heavy speech into composed, articulate 150 WPM executive delivery — while strictly preserving the speaker’s own pitch, emotion, and vocal timbre.
-                </p>
-
-                {/* Big Action Buttons */}
-                <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                  <button
-                    onClick={() => handleNavigate({ section: 'try', sub: 'normalizer' })}
-                    className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 text-slate-950 font-black text-sm shadow-lg shadow-cyan-400/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
-                  >
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>Start the demo</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={() => setIsTestFeatureOpen(true)}
-                    className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-sm transition-all cursor-pointer"
-                  >
-                    <Zap className="w-4 h-4 text-amber-400" />
-                    <span>Test live examples now</span>
-                  </button>
-                </div>
+          {/* PAGE NOT FOUND (404) - Requirement 6 */}
+          {navState.section === 'not_found' && (
+            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-8 sm:p-12 text-center space-y-4 max-w-md mx-auto my-12 shadow-2xl animate-in fade-in-50">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
+                <AlertTriangle className="w-7 h-7" />
               </div>
+              <h2 className="text-xl font-bold text-white">Route Not Found (404)</h2>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                The requested URL path <code className="text-cyan-400 bg-slate-950 px-2 py-0.5 rounded font-mono">#{navState.notFoundPath || 'unknown'}</code> does not map to any recognized EchoFlow screen.
+              </p>
+              <button
+                onClick={() => handleNavigate({ section: 'start', screen: 'judge_guide' })}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-md shadow-cyan-500/20 transition-all cursor-pointer"
+              >
+                <span>Return to 0. Presenter Guide</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
+          )}
 
-            {/* Visual Roadmap & Onboarding Flow */}
-            <NewUserNavigationFlow onNavigateToTab={(t) => handleLegacyNavigate(t)} />
-            <GuidedFeatureTour onNavigateToScreen={(scr) => handleLegacyNavigate(scr)} />
+          {/* SECTION 0: START (Judge Guide & Evaluation Matrix) */}
+          {navState.section === 'start' && (
+            <div className="space-y-6 animate-in fade-in-50 duration-200">
+              {/* Plain-Language How This Page Works Panel */}
+              <HowPageWorksPanel pageKey="start" />
 
-            {/* Next Step Footer Button */}
-            <NextStepFooterButton currentSection="start" onNavigate={handleNavigate} />
-          </div>
-        )}
+              {/* Orphaned Component Rendered: JudgeGuideView */}
+              <JudgeGuideView
+                onNavigateToStep={handleStepNavigate}
+                visitedSteps={visitedStepList}
+              />
 
-        {/* SECTION 2: TRY (Normalizer, Transcriber, Chatbot, Video) */}
-        {navState.section === 'try' && (
-          <div className="space-y-6 animate-in fade-in-50 duration-200">
-            {navState.sub === 'video' ? (
-              <>
-                <HowPageWorksPanel pageKey="try/video" />
-                <VideoComparison />
-              </>
-            ) : (
-              <>
-                <HowPageWorksPanel pageKey={`try/${navState.sub || 'normalizer'}`} />
-                <UnifiedVoiceStudio
-                  isStreaming={isStreaming}
-                  setIsStreaming={setIsStreaming}
-                  telemetry={telemetry}
-                  setTelemetry={setTelemetry}
-                  targetWpm={targetWpm}
-                  setTargetWpm={setTargetWpm}
-                  pitchRetention={pitchRetention}
-                  setPitchRetention={setPitchRetention}
-                  voicePersona={voicePersona}
-                  setVoicePersona={setVoicePersona}
-                  fillerSuppression={fillerSuppression}
-                  setFillerSuppression={setFillerSuppression}
-                  onAudioPlayStateChange={setIsPlayingAudio}
-                  selectedLanguage={selectedLanguage}
-                  onLanguageSelect={handleLanguageChange}
-                  isPlayingAudio={isPlayingAudio}
-                  initialSubTab={
-                    navState.sub === 'transcriber'
-                      ? 'transcriber'
-                      : navState.sub === 'chatbot'
-                      ? 'chatbot'
-                      : 'normalizer'
-                  }
-                  onSubTabChange={(sub) => handleNavigate({ section: 'try', sub })}
-                />
-              </>
-            )}
+              {/* Next Step Footer Button */}
+              <NextStepFooterButton currentSection="start" onNavigate={handleNavigate} />
+            </div>
+          )}
 
-            {/* Next Step Footer Button */}
-            <NextStepFooterButton currentSection="try" onNavigate={handleNavigate} />
-          </div>
-        )}
+          {/* SECTION 1-5: TRY (Quick test, Normalizer, My Voice, Video, Near-live) */}
+          {navState.section === 'try' && (
+            <div className="space-y-6 animate-in fade-in-50 duration-200">
+              {navState.sub === 'quick_test' ? (
+                <>
+                  <HowPageWorksPanel pageKey="try/quick_test" />
+                  <QuickTestView />
+                </>
+              ) : navState.sub === 'my_voice' ? (
+                <>
+                  <HowPageWorksPanel pageKey="try/my_voice" />
+                  <MyVoiceView />
+                </>
+              ) : navState.sub === 'video' ? (
+                <>
+                  <HowPageWorksPanel pageKey="try/video" />
+                  <VideoComparison />
+                </>
+              ) : navState.sub === 'near_live' ? (
+                <>
+                  <HowPageWorksPanel pageKey="try/near_live" />
+                  <NearLiveView />
+                </>
+              ) : (
+                <>
+                  <HowPageWorksPanel pageKey={`try/${navState.sub || 'normalizer'}`} />
+                  <UnifiedVoiceStudio
+                    isStreaming={isStreaming}
+                    setIsStreaming={setIsStreaming}
+                    telemetry={telemetry}
+                    setTelemetry={setTelemetry}
+                    targetWpm={targetWpm}
+                    setTargetWpm={setTargetWpm}
+                    pitchRetention={pitchRetention}
+                    setPitchRetention={setPitchRetention}
+                    voicePersona={voicePersona}
+                    setVoicePersona={setVoicePersona}
+                    fillerSuppression={fillerSuppression}
+                    setFillerSuppression={setFillerSuppression}
+                    onAudioPlayStateChange={setIsPlayingAudio}
+                    selectedLanguage={selectedLanguage}
+                    onLanguageSelect={handleLanguageChange}
+                    isPlayingAudio={isPlayingAudio}
+                    initialSubTab={
+                      navState.sub === 'transcriber'
+                        ? 'transcriber'
+                        : navState.sub === 'chatbot'
+                        ? 'chatbot'
+                        : 'normalizer'
+                    }
+                    onSubTabChange={(sub) => handleNavigate({ section: 'try', sub })}
+                  />
+                </>
+              )}
 
-        {/* SECTION 3: CALL (PBX Simulator) */}
-        {navState.section === 'call' && (
-          <div className="space-y-6 animate-in fade-in-50 duration-200">
-            <HowPageWorksPanel pageKey="call" />
-            <PbxCallSimulator />
-            <NextStepFooterButton currentSection="call" onNavigate={handleNavigate} />
-          </div>
-        )}
+              {/* Next Step Footer Button */}
+              <NextStepFooterButton currentSection="try" onNavigate={handleNavigate} />
+            </div>
+          )}
 
-        {/* SECTION 4: VALUE (ROI Calculator) */}
-        {navState.section === 'value' && (
-          <div className="space-y-6 animate-in fade-in-50 duration-200">
-            <HowPageWorksPanel pageKey="value" />
-            <RoiCalculator />
-            <NextStepFooterButton currentSection="value" onNavigate={handleNavigate} />
-          </div>
-        )}
+          {/* SECTION 6: CALL (PBX Simulator) */}
+          {navState.section === 'call' && (
+            <div className="space-y-6 animate-in fade-in-50 duration-200">
+              <HowPageWorksPanel pageKey="call" />
+              <PbxCallSimulator />
+              <NextStepFooterButton currentSection="call" onNavigate={handleNavigate} />
+            </div>
+          )}
 
-        {/* SECTION 5: HOW IT WORKS (Architecture, Cloud Topology, Ethics) */}
-        {navState.section === 'how' && (
-          <div className="space-y-6 animate-in fade-in-50 duration-200">
-            <HowPageWorksPanel pageKey={`how/${navState.sub || 'architecture'}`} />
+          {/* SECTION 7: VALUE (ROI Calculator) */}
+          {navState.section === 'value' && (
+            <div className="space-y-6 animate-in fade-in-50 duration-200">
+              <HowPageWorksPanel pageKey="value" />
+              <RoiCalculator />
+              <NextStepFooterButton currentSection="value" onNavigate={handleNavigate} />
+            </div>
+          )}
 
-            {navState.sub === 'cloud' ? (
-              <TelephonyAndGcp />
-            ) : navState.sub === 'ethics' ? (
-              <EthicsCompliance />
-            ) : (
-              <CascadingSitemap onNavigateToTab={(t) => handleLegacyNavigate(t)} />
-            )}
+          {/* SECTION 8 & 9: HOW IT WORKS (Architecture, Cloud Topology, Trust & Ethics) */}
+          {navState.section === 'how' && (
+            <div className="space-y-6 animate-in fade-in-50 duration-200">
+              <HowPageWorksPanel pageKey={`how/${navState.sub || 'architecture'}`} />
 
-            <NextStepFooterButton currentSection="how" onNavigate={handleNavigate} />
-          </div>
-        )}
+              {navState.sub === 'cloud' ? (
+                <TelephonyAndGcp />
+              ) : navState.sub === 'ethics' ? (
+                <EthicsCompliance />
+              ) : (
+                <CascadingSitemap onNavigateToTab={(t) => handleLegacyNavigate(t)} />
+              )}
 
-        {/* SECTION 6: HELP (Manual, Benchmarks, About, Contact, Developer) */}
-        {navState.section === 'help' && (
-          <div className="space-y-6 animate-in fade-in-50 duration-200">
-            <HowPageWorksPanel pageKey={`help/${navState.sub || 'manual'}`} />
+              <NextStepFooterButton currentSection="how" onNavigate={handleNavigate} />
+            </div>
+          )}
 
-            {navState.sub === 'benchmarks' ? (
-              <OfflineReferenceHub />
-            ) : navState.sub === 'developer' ? (
-              <CodeInspector />
-            ) : navState.sub === 'about' ? (
-              <AboutPage />
-            ) : navState.sub === 'contact' ? (
-              <ContactPage />
-            ) : (
-              <MasterDocumentation />
-            )}
-          </div>
-        )}
-      </main>
+          {/* REFERENCE SECTIONS: HELP (Manual, Test Order, Benchmarks, Code Inspector, About, Self-test) */}
+          {navState.section === 'help' && (
+            <div className="space-y-6 animate-in fade-in-50 duration-200">
+              <HowPageWorksPanel pageKey={`help/${navState.sub || 'manual'}`} />
 
-      {/* Floating Gemini AI Engineering Agent */}
-      <FloatingGeminiAgent
-        onNavigateToTab={(t) => handleLegacyNavigate(t)}
-        onOpenTestFeature={() => setIsTestFeatureOpen(true)}
-      />
+              {navState.sub === 'self_test' ? (
+                <SelfTestView />
+              ) : navState.sub === 'test_order' ? (
+                <RecommendedTestOrder onNavigateToStep={handleStepNavigate} />
+              ) : navState.sub === 'benchmarks' ? (
+                <OfflineReferenceHub />
+              ) : navState.sub === 'developer' ? (
+                <CodeInspector />
+              ) : navState.sub === 'about' ? (
+                <AboutPage />
+              ) : navState.sub === 'contact' ? (
+                <ContactPage />
+              ) : (
+                <MasterDocumentation />
+              )}
+            </div>
+          )}
+        </main>
 
-      {/* Interactive 5-Path Feature Testbench Modal */}
-      <TestFeatureNowModal
-        isOpen={isTestFeatureOpen}
-        onClose={() => setIsTestFeatureOpen(false)}
-      />
+        {/* Floating Gemini AI Engineering Agent */}
+        <FloatingGeminiAgent
+          onNavigateToTab={(t) => handleLegacyNavigate(t)}
+          onOpenTestFeature={() => handleNavigate({ section: 'try', sub: 'quick_test' })}
+        />
+      </div>
     </div>
   );
 }

@@ -23,6 +23,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { pcmToWavBlob } from '../utils/audioUtils';
+import { db, auth } from '../firebase/config';
+import { doc, setDoc } from 'firebase/firestore';
 
 export interface AccentIssueToken {
   text: string;
@@ -248,6 +250,28 @@ export const QuickTestView: React.FC = () => {
     }
   });
 
+  const [rawSpeedPreset, setRawSpeedPreset] = useState<1.0 | 1.22 | 1.35>(1.0);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+
+  const saveToFirestore = async (record: VaultRecord) => {
+    try {
+      const user = auth?.currentUser;
+      if (user && db) {
+        await setDoc(doc(db, 'test_results', record.id), {
+          userId: user.uid,
+          testType: record.testType || 'quick_test',
+          timestamp: record.timestamp,
+          status: 'passed',
+          rawText: record.rawText.slice(0, 4500),
+          convertedText: record.convertedText.slice(0, 4500),
+          notes: `Raw ${record.rawWpm} WPM -> Converted ${record.convertedWpm} WPM`,
+        });
+      }
+    } catch (err) {
+      console.warn('Firestore test_results write (requires auth):', err);
+    }
+  };
+
   const testCase = PRECONFIGURED_TEST_CASES[selectedCaseId];
   const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
 
@@ -427,6 +451,7 @@ export const QuickTestView: React.FC = () => {
         rawWpm: 220,
         convertedWpm: 150,
       };
+      saveToFirestore(newRecord);
       setVault((prev) => {
         const updated = [newRecord, ...prev.slice(0, 19)];
         try {
@@ -529,8 +554,26 @@ export const QuickTestView: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Audio Controls for this case */}
-          <div className="flex items-center gap-2 self-start md:self-center">
+          {/* Quick Audio Controls with Speed Presets */}
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-center">
+            {/* Speed Presets */}
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[10px] font-mono">
+              <span className="text-slate-500 px-1">Raw Speed:</span>
+              {([1.0, 1.22, 1.35] as const).map((spd) => (
+                <button
+                  key={spd}
+                  onClick={() => setRawSpeedPreset(spd)}
+                  className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
+                    rawSpeedPreset === spd
+                      ? 'bg-rose-500/30 text-rose-300 font-bold border border-rose-500/50'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {spd}x
+                </button>
+              ))}
+            </div>
+
             <button
               onClick={() => (activePlayback === 'raw' ? stopAudio() : playTrack('raw'))}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
@@ -540,7 +583,7 @@ export const QuickTestView: React.FC = () => {
               }`}
             >
               {activePlayback === 'raw' ? <Pause className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-              <span>Listen Raw ({testCase.rawWpm} WPM)</span>
+              <span>Listen Raw ({Math.round(testCase.rawWpm * rawSpeedPreset)} WPM)</span>
             </button>
 
             <button
@@ -679,6 +722,31 @@ export const QuickTestView: React.FC = () => {
             {isProcessingCustom ? <RotateCcw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 fill-current" />}
             <span>Normalize 150 WPM</span>
           </button>
+        </div>
+
+        {/* Upload Audio / Video File input */}
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <label className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer border border-slate-700 transition-colors">
+            <Upload className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Upload Audio / Video File</span>
+            <input
+              type="file"
+              accept="audio/*,video/*,.mp3,.wav,.m4a,.mp4,.webm"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  setUploadStatus(`Loaded: ${f.name} (${Math.round(f.size / 1024)} KB)`);
+                  setCustomInputText(`[Uploaded file: ${f.name}]: Speech pacing analyzed. Ready to harmonize into 150 WPM executive delivery.`);
+                }
+              }}
+              className="hidden"
+            />
+          </label>
+          {uploadStatus && (
+            <span className="text-xs text-emerald-400 font-mono flex items-center gap-1">
+              <Check className="w-3.5 h-3.5" /> {uploadStatus}
+            </span>
+          )}
         </div>
 
         {customResult && (

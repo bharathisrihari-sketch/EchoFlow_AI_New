@@ -14,6 +14,32 @@ const port = parseInt(process.env.PORT || '3000', 10);
 
 app.use(express.json({ limit: '15mb' }));
 
+// In-Memory IP Rate Limiter for Unauthenticated Calls (120 req/min)
+const ipRequestCounts: Record<string, { count: number; resetTime: number }> = {};
+app.use('/api', (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return next();
+  }
+  const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const maxRequests = 120;
+
+  if (!ipRequestCounts[clientIp] || now > ipRequestCounts[clientIp].resetTime) {
+    ipRequestCounts[clientIp] = { count: 1, resetTime: now + windowMs };
+  } else {
+    ipRequestCounts[clientIp].count++;
+    if (ipRequestCounts[clientIp].count > maxRequests) {
+      return res.status(429).json({
+        error: 'Too Many Requests',
+        message: 'Rate limit exceeded for unauthenticated calls (120 req/min).',
+      });
+    }
+  }
+  next();
+});
+
 // Initialize GoogleGenAI SDK safely
 let ai: GoogleGenAI | null = null;
 const apiKey = process.env.GEMINI_API_KEY;
@@ -166,7 +192,7 @@ app.get('/api/stats', (req, res) => {
     processedPackets: telemetry.processedPackets,
     droppedPackets: telemetry.droppedPackets,
     latency_stats: latStats,
-    avgLatencyMs: latStats.mean_ms || 418.5,
+    avgLatencyMs: latStats.mean_ms !== null ? latStats.mean_ms : null,
     slaTargetLatency: '< 550 ms (Target SLA)',
     targetCadenceWpm: '140-160 WPM (Target SLA)',
     pitchRetentionTarget: '94% (Pearson r target)',
@@ -247,14 +273,18 @@ app.get('/api/repo-files', (req, res) => {
       'main.py',
       'app.py',
       'demo_runner.py',
-      'MASTER_USER_MANUAL.md',
       'Dockerfile',
       'requirements.txt',
       'cloud_deploy.sh',
       'README.md',
       'firestore.rules',
       'src/App.tsx',
-      'src/components/TestFeatureNowModal.tsx',
+      'src/components/QuickTestView.tsx',
+      'src/components/SelfTestView.tsx',
+      'src/components/JudgeGuideView.tsx',
+      'src/components/MyVoiceView.tsx',
+      'src/components/NearLiveView.tsx',
+      'src/components/RecommendedTestOrder.tsx',
       'src/components/GcpConsoleNav.tsx',
       'src/components/VideoComparison.tsx',
       'src/components/AudioTestbench.tsx',
@@ -361,7 +391,7 @@ app.post('/api/gemini-chat', async (req, res) => {
     ) {
       return res.json({
         success: true,
-        reply: `📥 **Where to Download Code & Check Bugs:**\n\n1. **In-App Code Inspector:** Navigate to the **Documentation & Reference Hub** (\`docs\`) in the left navigation sidebar and click the **"Codebase & Claude Bundle"** sub-tab.\n2. **Direct Browser Download:** You can download the complete single-file repository bundle directly at [/api/download-bundle](/api/download-bundle).\n3. **Single-File Claude Bundle:** The single-file bundle formats \`server.ts\`, \`main.py\`, \`demo_runner.py\`, and all \`src/\` files inside standard \`<file path="...">\` XML tags, making it easy to paste into Claude, Cursor, or ChatGPT to audit bugs.\n4. **Automated Bug & SLA Test Suite:** Run \`python3 demo_runner.py\` in the project root to execute the 12 automated benchmark tests covering PCM frame alignment, backpressure queues, F0 pitch preservation, and ROI mathematical determinism.`,
+        reply: `📥 **Where to Download Code & Check Bugs:**\n\n1. **In-App Code Inspector:** Navigate to the **Documentation & Reference Hub** (\`docs\`) in the left navigation sidebar and click the **"Codebase & Local Backup"** sub-tab.\n2. **Direct Browser Download:** You can download the complete single-file repository bundle directly at [/api/download-bundle](/api/download-bundle).\n3. **Single-File Local Backup:** The single-file bundle formats \`server.ts\`, \`main.py\`, \`demo_runner.py\`, and all \`src/\` files inside standard \`<file path="...">\` XML tags, making it easy to store or audit bugs locally.\n4. **Automated Bug & SLA Test Suite:** Run \`python3 demo_runner.py\` in the project root to execute the 12 automated benchmark tests covering PCM frame alignment, backpressure queues, F0 pitch preservation, and ROI mathematical determinism.`,
         model: 'EchoFlow-Intelligence-Engine',
       });
     }
@@ -421,7 +451,7 @@ app.post('/api/gemini-chat', async (req, res) => {
     console.error('Gemini chat error:', error);
     res.json({
       success: true,
-      reply: `EchoFlow AI Assistant: I am here to help you test and debug the voice cadence normalizer. You can download the complete codebase from the **Documentation & Reference Hub** &rarr; **Codebase & Claude Bundle** tab or run \`python3 demo_runner.py\` in the terminal to verify the 12-test benchmark suite.`,
+      reply: `EchoFlow AI Assistant: I am here to help you test and debug the voice cadence normalizer. You can download the complete codebase from the **Documentation & Reference Hub** &rarr; **Codebase & Local Backup** tab or run \`python3 demo_runner.py\` in the terminal to verify the 12-test benchmark suite.`,
       model: 'EchoFlow-Fallback-Engine',
     });
   }
@@ -445,7 +475,7 @@ app.post('/api/clear-cache', (req, res) => {
   }
 });
 
-// Direct Download Endpoint for Single-File Codebase Bundle (Claude XML format)
+// Direct Download Endpoint for Single-File Codebase Bundle (Local Backup format)
 app.get('/api/download-bundle', (req, res) => {
   try {
     const filesToInclude = [
@@ -485,7 +515,12 @@ app.get('/api/download-bundle', (req, res) => {
       'src/components/AboutPage.tsx',
       'src/components/ContactPage.tsx',
       'src/components/CodeInspector.tsx',
-      'src/components/TestFeatureNowModal.tsx',
+      'src/components/SelfTestView.tsx',
+      'src/components/QuickTestView.tsx',
+      'src/components/JudgeGuideView.tsx',
+      'src/components/MyVoiceView.tsx',
+      'src/components/NearLiveView.tsx',
+      'src/components/RecommendedTestOrder.tsx',
       'src/components/FloatingGeminiAgent.tsx',
       'src/components/GlobalTelemetryBar.tsx',
       'src/components/FirebaseAuthBar.tsx',
@@ -522,7 +557,7 @@ app.get('/api/download-bundle', (req, res) => {
     });
 
     res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="echoflow_full_codebase_bundle.md"');
+    res.setHeader('Content-Disposition', 'attachment; filename="echoflow_local_backup_bundle.md"');
     res.send(bundle);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to generate bundle' });

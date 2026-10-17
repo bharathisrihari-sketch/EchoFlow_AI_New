@@ -247,10 +247,10 @@ const DEEP_DIVE_5MIN_STOPS: TourStop[] = [
     durationSec: 30,
     icon: FolderGit2,
     overview:
-      'Ethical AI foundation (human empowerment, anti-accent discrimination), regulatory compliance (GDPR, HIPAA), and one-click full codebase export formatted for Claude/ChatGPT.',
+      'Ethical AI foundation (human empowerment, anti-accent discrimination), regulatory compliance (GDPR, HIPAA), and one-click full codebase export formatted as a single-file Local Backup.',
     testInput: {
-      fileName: 'claude_codebase_bundle.md',
-      description: 'Single-file consolidated repository export with XML file delimiters for AI tool ingestion.',
+      fileName: 'echoflow_local_backup_bundle.md',
+      description: 'Single-file consolidated repository export with XML file delimiters for Local Backup preservation.',
       samplePayload: `<file path="main.py">
 # EchoFlow FastAPI WebSocket Streaming Gateway
 ...
@@ -261,11 +261,11 @@ const DEEP_DIVE_5MIN_STOPS: TourStop[] = [
     },
     liveOutput: {
       title: 'Production Codebase Deliverables & Compliance Matrix',
-      description: '8 production files available for individual download or as a single consolidated bundle for Claude.',
-      metrics: ['GDPR Art 28: Compliant', 'HIPAA: TLS 1.3', 'RAM Retention: 0 Bytes', 'Deliverables: 8 Files'],
+      description: 'Production files available for individual download or as a single consolidated Local Backup.',
+      metrics: ['GDPR Art 28: Compliant', 'HIPAA: TLS 1.3', 'RAM Retention: 0 Bytes', 'Deliverables: Complete'],
     },
     howToVerify:
-      'Open the Files tab. Click "Download for Claude / AI Tool" to download the single-file bundle, or click "Copy for Claude" to paste into Claude or Cursor.',
+      'Open the Files tab. Click "Download Local Backup" to download the single-file bundle, or click "Copy Local Backup" to copy the full package to clipboard.',
     businessBenefits: [
       'Guarantees caller privacy with zero audio persistence to disk (stateless RAM processing).',
       'Protects offshore agents against acoustic bias and language discrimination.',

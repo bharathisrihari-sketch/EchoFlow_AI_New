@@ -1,6 +1,6 @@
-import { AppTab } from '../components/GcpConsoleNav';
+import type { AppTab } from '../components/GcpConsoleNav';
 
-export type NavSection = 'start' | 'try' | 'call' | 'value' | 'how' | 'help';
+export type NavSection = 'start' | 'try' | 'call' | 'value' | 'how' | 'help' | 'not_found';
 
 export type ScreenId =
   | 'judge_guide'   // 0
@@ -17,12 +17,14 @@ export type ScreenId =
   | 'ref_test_order'
   | 'ref_benchmarks'
   | 'ref_code'
-  | 'ref_about';
+  | 'ref_about'
+  | 'ref_selftest';
 
 export interface NavState {
   section: NavSection;
   sub?: string;
   screen?: ScreenId;
+  notFoundPath?: string;
 }
 
 export interface TourStep {
@@ -98,8 +100,12 @@ export const LEGACY_TAB_MAP: Record<string, NavState> = {
   about: { section: 'help', sub: 'about', screen: 'ref_about' },
   contact: { section: 'help', sub: 'contact', screen: 'ref_about' },
   ref_about: { section: 'help', sub: 'about', screen: 'ref_about' },
+  self_test: { section: 'help', sub: 'self_test', screen: 'ref_selftest' },
+  selftest: { section: 'help', sub: 'self_test', screen: 'ref_selftest' },
+  report: { section: 'help', sub: 'self_test', screen: 'ref_selftest' },
+  ref_selftest: { section: 'help', sub: 'self_test', screen: 'ref_selftest' },
 
-  // Numbered mappings
+  // Numbered direct mappings for 0-9
   '0': { section: 'start', screen: 'judge_guide' },
   '1': { section: 'try', sub: 'quick_test', screen: 'quick_test' },
   '2': { section: 'try', sub: 'normalizer', screen: 'normalizer' },
@@ -138,13 +144,21 @@ export const parseHash = (hash: string): NavState => {
     return {
       section: first as NavSection,
       sub: second,
+      screen: LEGACY_TAB_MAP[second || first]?.screen,
     };
   }
 
-  return DEFAULT_NAV_STATE;
+  // 3. Not found - Requirement 6
+  return {
+    section: 'not_found',
+    notFoundPath: clean,
+  };
 };
 
 export const serializeHash = (nav: NavState): string => {
+  if (nav.section === 'not_found') {
+    return `#/${nav.notFoundPath || 'not-found'}`;
+  }
   if (nav.sub) {
     return `#/${nav.section}/${nav.sub}`;
   }
@@ -159,18 +173,63 @@ export interface PageHelpGuide {
 }
 
 export const PAGE_GUIDES: Record<string, PageHelpGuide> = {
+  // 0. Presenter guide
   start: {
-    title: 'Getting Started & Evaluation Guide',
-    whatItShows: 'Executive overview, demo navigation, and verified live vs simulated technical matrix.',
+    title: '0. Presenter Guide & Briefing',
+    whatItShows: 'Executive overview, recommended 9-step evaluation path, and verified live vs simulated technical matrix.',
     threeSteps: [
       'Read the 3-line overview explaining what EchoFlow does and why it preserves vocal identity.',
       'Check the Live vs Simulated verification matrix audited directly from the repository code.',
-      'Click "Start the demo" or jump directly to Try, Call, or ROI via the navigation bar.',
+      'Click "Start Evaluation (Step 1)" or jump into any step via the numbered sidebar.',
     ],
     whatToExpect: 'Clear, transparent context on what runs live against Gemini versus what is simulated.',
   },
+  judge_guide: {
+    title: '0. Presenter Guide & Briefing',
+    whatItShows: 'Executive overview, recommended 9-step evaluation path, and verified live vs simulated technical matrix.',
+    threeSteps: [
+      'Read the 3-line overview explaining what EchoFlow does and why it preserves vocal identity.',
+      'Check the Live vs Simulated verification matrix audited directly from the repository code.',
+      'Click "Start Evaluation (Step 1)" or jump into any step via the numbered sidebar.',
+    ],
+    whatToExpect: 'Clear, transparent context on what runs live against Gemini versus what is simulated.',
+  },
+
+  // 1. Quick test
+  'try/quick_test': {
+    title: '1. Quick Test Archetypes',
+    whatItShows: 'Evaluation across 3 demographic archetypes (Child, Lady, Senior Man) with sequential playback.',
+    threeSteps: [
+      'Choose an archetype (e.g. 1. English Child, 2. Tamil Lady, 3. Telugu Senior Man).',
+      'Click "Play Sequence (Raw ➔ Converted)" to hear raw hurried speech, a pause, then the 150 WPM output.',
+      'Inspect the highlighted token tags showing fillers purged, accent phonetics, and syntax repair.',
+    ],
+    whatToExpect: 'Acoustic pacing decelerates smoothly while Aarav, Dr. Meera, or Raju’s natural pitch is preserved.',
+  },
+  quick_test: {
+    title: '1. Quick Test Archetypes',
+    whatItShows: 'Evaluation across 3 demographic archetypes (Child, Lady, Senior Man) with sequential playback.',
+    threeSteps: [
+      'Choose an archetype (e.g. 1. English Child, 2. Tamil Lady, 3. Telugu Senior Man).',
+      'Click "Play Sequence (Raw ➔ Converted)" to hear raw hurried speech, a pause, then the 150 WPM output.',
+      'Inspect the highlighted token tags showing fillers purged, accent phonetics, and syntax repair.',
+    ],
+    whatToExpect: 'Acoustic pacing decelerates smoothly while Aarav, Dr. Meera, or Raju’s natural pitch is preserved.',
+  },
+
+  // 2. Normalizer & languages
   'try/normalizer': {
-    title: 'Voice Studio Normalizer',
+    title: '2. Normalizer Voice Studio',
+    whatItShows: 'Studio acoustic testbench with target WPM cadence sliders, pitch retention floor, and 6 dialect presets.',
+    threeSteps: [
+      'Select a regional dialect from the dropdown (Tamil, Telugu, Hindi, French, German, English).',
+      'Adjust the Target Cadence slider (120–180 WPM) and Pitch Retention floor (80–100%).',
+      'Click "Listen to Normalized Audio" or test live microphone capture.',
+    ],
+    whatToExpect: 'Real-time recalculated audio output and spectrum waveform visualization.',
+  },
+  normalizer: {
+    title: '2. Normalizer Voice Studio',
     whatItShows: 'Studio acoustic testbench with target WPM cadence sliders, pitch retention floor, and 6 dialect presets.',
     threeSteps: [
       'Select a regional dialect from the dropdown (Tamil, Telugu, Hindi, French, German, English).',
@@ -199,8 +258,32 @@ export const PAGE_GUIDES: Record<string, PageHelpGuide> = {
     ],
     whatToExpect: 'Gemini-powered insights on vocal psychology and enterprise communication.',
   },
+
+  // 3. My voice
+  'try/my_voice': {
+    title: '3. My Voice Calibration',
+    whatItShows: 'Natural voice recording station that adjusts speech tempo without replacing your vocal identity.',
+    threeSteps: [
+      'Review and check the ephemeral RAM privacy and consent acknowledgement box.',
+      'Click "Start Recording" and speak a hurried sentence for 10 to 30 seconds.',
+      'Click "Play EchoFlow" to hear your own recorded voice played at calibrated 150 WPM.',
+    ],
+    whatToExpect: 'Your voice is kept completely natural using pitch-preserving playback speed adjustment.',
+  },
+  my_voice: {
+    title: '3. My Voice Calibration',
+    whatItShows: 'Natural voice recording station that adjusts speech tempo without replacing your vocal identity.',
+    threeSteps: [
+      'Review and check the ephemeral RAM privacy and consent acknowledgement box.',
+      'Click "Start Recording" and speak a hurried sentence for 10 to 30 seconds.',
+      'Click "Play EchoFlow" to hear your own recorded voice played at calibrated 150 WPM.',
+    ],
+    whatToExpect: 'Your voice is kept completely natural using pitch-preserving playback speed adjustment.',
+  },
+
+  // 4. Video comparison
   'try/video': {
-    title: 'Dual-Track Video Player',
+    title: '4. Dual-Track Video Player',
     whatItShows: 'Side-by-side synchronized video players contrasting unconstrained raw ingest with 150 WPM.',
     threeSteps: [
       'Choose a preset dialect or upload your own webcam recording.',
@@ -209,18 +292,42 @@ export const PAGE_GUIDES: Record<string, PageHelpGuide> = {
     ],
     whatToExpect: 'Both videos stay in sync while only the right player outputs the pace-calibrated voice.',
   },
-  'try/quick_test': {
-    title: 'Quick Test Archetypes',
-    whatItShows: 'Evaluation across 3 demographic archetypes (Child, Lady, Senior Man) with sequential playback.',
+  video: {
+    title: '4. Dual-Track Video Player',
+    whatItShows: 'Side-by-side synchronized video players contrasting unconstrained raw ingest with 150 WPM.',
     threeSteps: [
-      'Choose an archetype (e.g. 1. English Child, 2. Tamil Lady, 3. Telugu Senior Man).',
-      'Click "Play Sequence (Raw ➔ Converted)" to hear raw hurried speech, a pause, then the 150 WPM output.',
-      'Inspect the highlighted token tags showing fillers purged, accent phonetics, and syntax repair.',
+      'Choose a preset dialect or upload your own webcam recording.',
+      'Click "Listen Original" to hear the raw, rapid speech.',
+      'Click "Listen EchoFlow" to hear the right video play at 150 WPM with pitch preservation enabled.',
     ],
-    whatToExpect: 'Acoustic pacing decelerates smoothly while Aarav, Dr. Meera, or Raju’s natural pitch is preserved.',
+    whatToExpect: 'Both videos stay in sync while only the right player outputs the pace-calibrated voice.',
   },
+
+  // 5. Near-live
+  'try/near_live': {
+    title: '5. Near-Live Streaming',
+    whatItShows: 'Chunked 16kHz PCM audio streaming over WebSocket to Gemini Live with real-time latency ping.',
+    threeSteps: [
+      'Put on headphones to avoid acoustic speaker-mic feedback loops.',
+      'Click "Connect & Stream Live" to open the bidirectional WebSocket to /ws/stream.',
+      'Monitor the measured RTT latency card showing live round-trip network milliseconds.',
+    ],
+    whatToExpect: 'Real network telemetry updates without hardcoded placeholders or mock timers.',
+  },
+  near_live: {
+    title: '5. Near-Live Streaming',
+    whatItShows: 'Chunked 16kHz PCM audio streaming over WebSocket to Gemini Live with real-time latency ping.',
+    threeSteps: [
+      'Put on headphones to avoid acoustic speaker-mic feedback loops.',
+      'Click "Connect & Stream Live" to open the bidirectional WebSocket to /ws/stream.',
+      'Monitor the measured RTT latency card showing live round-trip network milliseconds.',
+    ],
+    whatToExpect: 'Real network telemetry updates without hardcoded placeholders or mock timers.',
+  },
+
+  // 6. In a call
   call: {
-    title: 'In a Call (PBX Simulation)',
+    title: '6. In a Call (PBX Simulation)',
     whatItShows: 'Simulated enterprise customer support escalation call with live cadence filtering.',
     threeSteps: [
       'Select an urgent incident scenario (database latency, server outage, payment failure).',
@@ -229,8 +336,10 @@ export const PAGE_GUIDES: Record<string, PageHelpGuide> = {
     ],
     whatToExpect: 'Panicked customer utterances are softened into professional, articulate executive turns.',
   },
+
+  // 7. Business value
   value: {
-    title: 'Business Value & ROI',
+    title: '7. Business Value & ROI Calculator',
     whatItShows: 'Deterministic mathematical model calculating hours recovered and net bottom-line dollars saved.',
     threeSteps: [
       'Adjust contact center seats (e.g. 500 seats) and loaded agent hourly rate.',
@@ -239,8 +348,20 @@ export const PAGE_GUIDES: Record<string, PageHelpGuide> = {
     ],
     whatToExpect: 'Deterministic financial impact strictly verified by demo_runner.py and server.ts.',
   },
+  roi: {
+    title: '7. Business Value & ROI Calculator',
+    whatItShows: 'Deterministic mathematical model calculating hours recovered and net bottom-line dollars saved.',
+    threeSteps: [
+      'Adjust contact center seats (e.g. 500 seats) and loaded agent hourly rate.',
+      'Review annual hours recovered based on verified 18.5% Average Handle Time (AHT) compression.',
+      'Click "Generate Executive Report" to view or print the confidential C-suite memo.',
+    ],
+    whatToExpect: 'Deterministic financial impact strictly verified by demo_runner.py and server.ts.',
+  },
+
+  // 8. How it works
   'how/architecture': {
-    title: 'Pipeline Architecture Map',
+    title: '8. Pipeline Architecture Map',
     whatItShows: 'Full pipeline architecture diagram tracing Client Ingestion, Gateway Relay, and DSP Resynthesis.',
     threeSteps: [
       'Trace the 4 processing stages: Client Ingestion, Gateway Relay, DSP Resynthesis, and Jitter Buffer.',
@@ -249,8 +370,18 @@ export const PAGE_GUIDES: Record<string, PageHelpGuide> = {
     ],
     whatToExpect: 'Comprehensive architectural transparency for enterprise production readiness.',
   },
+  how: {
+    title: '8. How It Works (Architecture & Cloud)',
+    whatItShows: 'Full pipeline architecture diagram and Google Cloud Run deployment topology with SIP webhooks.',
+    threeSteps: [
+      'Trace the 4 processing stages: Client Ingestion, Gateway Relay, DSP Resynthesis, and Jitter Buffer.',
+      'Switch between the Architecture Map and Cloud Run Topology sub-tabs.',
+      'Inspect the Twilio / Genesys SIP webhook configurations.',
+    ],
+    whatToExpect: 'Comprehensive architectural transparency for enterprise production readiness.',
+  },
   'how/cloud': {
-    title: 'Cloud Run Topology',
+    title: 'Cloud Run Deployment Topology',
     whatItShows: 'Google Cloud Run deployment topology with auto-scaling container configurations.',
     threeSteps: [
       'Inspect the multi-region low-latency deployment architecture.',
@@ -259,8 +390,10 @@ export const PAGE_GUIDES: Record<string, PageHelpGuide> = {
     ],
     whatToExpect: 'Production-ready cloud configuration built for 99.99% contact center SLA.',
   },
+
+  // 9. Trust & privacy
   'how/ethics': {
-    title: 'Ethics & Trust Charter',
+    title: '9. Trust & Privacy Charter',
     whatItShows: 'Commitments to accent preservation, non-bias, and zero-disk volatile RAM buffer guarantees.',
     threeSteps: [
       'Review the 5-point Linguistic Equity Charter ensuring regional dialects are respected.',
@@ -269,8 +402,20 @@ export const PAGE_GUIDES: Record<string, PageHelpGuide> = {
     ],
     whatToExpect: 'Proof of responsible AI engineering prioritizing human dignity and worker clarity.',
   },
+  trust: {
+    title: '9. Trust & Privacy Charter',
+    whatItShows: 'Commitments to accent preservation, non-bias, and zero-disk volatile RAM buffer guarantees.',
+    threeSteps: [
+      'Review the 5-point Linguistic Equity Charter ensuring regional dialects are respected.',
+      'Verify the zero-disk storage architecture (0 disk writes for GDPR / HIPAA).',
+      'Inspect the anti-bias audit guidelines across all 6 supported global dialects.',
+    ],
+    whatToExpect: 'Proof of responsible AI engineering prioritizing human dignity and worker clarity.',
+  },
+
+  // Reference screens
   'help/manual': {
-    title: 'Master User Manual',
+    title: 'Master User Operations Manual',
     whatItShows: 'Comprehensive system operations manual covering setup, configuration, and diagnostics.',
     threeSteps: [
       'Browse the table of contents covering audio testbenches, PBX integration, and APIs.',
@@ -279,8 +424,40 @@ export const PAGE_GUIDES: Record<string, PageHelpGuide> = {
     ],
     whatToExpect: 'Complete reference documentation for developers, engineers, and judges.',
   },
+  ref_manual: {
+    title: 'Master User Operations Manual',
+    whatItShows: 'Comprehensive system operations manual covering setup, configuration, and diagnostics.',
+    threeSteps: [
+      'Browse the table of contents covering audio testbenches, PBX integration, and APIs.',
+      'Read step-by-step instructions for deploying EchoFlow on Google Cloud Run.',
+      'Review troubleshooting procedures for audio capture and WebSocket streaming.',
+    ],
+    whatToExpect: 'Complete reference documentation for developers, engineers, and judges.',
+  },
+
+  'help/test_order': {
+    title: 'Recommended Evaluation Test Order',
+    whatItShows: 'Recommended evaluation sequence with checkboxes stored locally to guide judges.',
+    threeSteps: [
+      'Follow the curated P0 testing path starting with Quick test archetypes.',
+      'Progress through Normalizer, My voice, Video comparison, and PBX simulator.',
+      'Check off each test as you complete it; progress saves automatically.',
+    ],
+    whatToExpect: 'Systematic walk-through verifying all primary product capabilities.',
+  },
+  ref_test_order: {
+    title: 'Recommended Evaluation Test Order',
+    whatItShows: 'Recommended evaluation sequence with checkboxes stored locally to guide judges.',
+    threeSteps: [
+      'Follow the curated P0 testing path starting with Quick test archetypes.',
+      'Progress through Normalizer, My voice, Video comparison, and PBX simulator.',
+      'Check off each test as you complete it; progress saves automatically.',
+    ],
+    whatToExpect: 'Systematic walk-through verifying all primary product capabilities.',
+  },
+
   'help/benchmarks': {
-    title: '12-Test Benchmark Suite',
+    title: '12-Test Empirical Benchmark Suite',
     whatItShows: 'Empirical benchmark suite measuring latency, pitch preservation, and intelligibility lift.',
     threeSteps: [
       'Inspect the 12 automated benchmark tests covering end-to-end performance.',
@@ -289,8 +466,40 @@ export const PAGE_GUIDES: Record<string, PageHelpGuide> = {
     ],
     whatToExpect: 'Rigorous empirical validation across diverse acoustic environments.',
   },
+  ref_benchmarks: {
+    title: '12-Test Empirical Benchmark Suite',
+    whatItShows: 'Empirical benchmark suite measuring latency, pitch preservation, and intelligibility lift.',
+    threeSteps: [
+      'Inspect the 12 automated benchmark tests covering end-to-end performance.',
+      'Review measured latency breakdowns across network, LLM, and DSP stages.',
+      'Verify adherence to telecommunication audio quality standards (MOS > 4.2).',
+    ],
+    whatToExpect: 'Rigorous empirical validation across diverse acoustic environments.',
+  },
+
+  'help/developer': {
+    title: 'Developer Tools & Code Inspector',
+    whatItShows: 'Interactive source code viewer, cache management, and offline codebase bundle exporter.',
+    threeSteps: [
+      'Select any source file to inspect its implementation and architecture comments.',
+      'Use the Reset System Cache button to clear local storage and session data.',
+      'Download the self-contained Markdown bundle for offline analysis.',
+    ],
+    whatToExpect: 'Complete code transparency for deep architectural inspection.',
+  },
+  ref_code: {
+    title: 'Developer Tools & Code Inspector',
+    whatItShows: 'Interactive source code viewer, cache management, and offline codebase bundle exporter.',
+    threeSteps: [
+      'Select any source file to inspect its implementation and architecture comments.',
+      'Use the Reset System Cache button to clear local storage and session data.',
+      'Download the self-contained Markdown bundle for offline analysis.',
+    ],
+    whatToExpect: 'Complete code transparency for deep architectural inspection.',
+  },
+
   'help/about': {
-    title: 'About EchoFlow AI',
+    title: 'About EchoFlow AI & Submitter',
     whatItShows: 'Project background, mission statement, and hackathon submission details.',
     threeSteps: [
       'Read the origin story and motivation behind pitch-preserving cadence normalization.',
@@ -299,6 +508,17 @@ export const PAGE_GUIDES: Record<string, PageHelpGuide> = {
     ],
     whatToExpect: 'Inspiring overview of technology built to make spoken communication effortless.',
   },
+  ref_about: {
+    title: 'About EchoFlow AI & Submitter',
+    whatItShows: 'Project background, mission statement, and hackathon submission details.',
+    threeSteps: [
+      'Read the origin story and motivation behind pitch-preserving cadence normalization.',
+      'Review team credentials and engineering philosophy.',
+      'Access links to the GitHub repository, demo video, and documentation.',
+    ],
+    whatToExpect: 'Inspiring overview of technology built to make spoken communication effortless.',
+  },
+
   'help/contact': {
     title: 'Contact & Enterprise Pilots',
     whatItShows: 'Direct contact channels for enterprise pilot inquiries, partnerships, and technical support.',
@@ -309,14 +529,25 @@ export const PAGE_GUIDES: Record<string, PageHelpGuide> = {
     ],
     whatToExpect: 'Prompt response for enterprise pilot evaluations and technology inquiries.',
   },
-  'help/developer': {
-    title: 'Developer Tools & Code Inspector',
-    whatItShows: 'Interactive source code viewer, cache management, and offline codebase bundle exporter.',
+
+  'help/self_test': {
+    title: 'Self-Test Harness & Evaluation Report',
+    whatItShows: 'Automated assertion testbench and manual judge checklist with verifiable report generation.',
     threeSteps: [
-      'Select any source file to inspect its implementation and architecture comments.',
-      'Use the Reset System Cache button to clear local storage and session data.',
-      'Download the self-contained Markdown bundle for offline analysis.',
+      'Click "Run Automated Tests" to execute live assertions against APIs, audio math, routing, and browser storage.',
+      'Verify the manual checklist (microphone permissions, audio playback, video sync, telephony toggles).',
+      'Download the complete verifiable evaluation report in Markdown and printable HTML format.',
     ],
-    whatToExpect: 'Complete code transparency for deep architectural inspection.',
+    whatToExpect: 'Real deterministic assertions without hardcoded pass marks or mock metrics.',
+  },
+  ref_selftest: {
+    title: 'Self-Test Harness & Evaluation Report',
+    whatItShows: 'Automated assertion testbench and manual judge checklist with verifiable report generation.',
+    threeSteps: [
+      'Click "Run Automated Tests" to execute live assertions against APIs, audio math, routing, and browser storage.',
+      'Verify the manual checklist (microphone permissions, audio playback, video sync, telephony toggles).',
+      'Download the complete verifiable evaluation report in Markdown and printable HTML format.',
+    ],
+    whatToExpect: 'Real deterministic assertions without hardcoded pass marks or mock metrics.',
   },
 };

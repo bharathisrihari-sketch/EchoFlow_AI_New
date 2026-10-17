@@ -22,7 +22,8 @@ export type RepoFileKey =
   | 'app.py'
   | 'demo_runner.py'
   | 'src/App.tsx'
-  | 'src/components/TestFeatureNowModal.tsx'
+  | 'src/components/QuickTestView.tsx'
+  | 'src/components/SelfTestView.tsx'
   | 'src/components/CodeInspector.tsx'
   | 'src/components/GcpConsoleNav.tsx'
   | 'src/components/VideoComparison.tsx'
@@ -30,7 +31,6 @@ export type RepoFileKey =
   | 'src/components/RoiCalculator.tsx'
   | 'src/components/OfflineReferenceHub.tsx'
   | 'src/components/MasterDocumentation.tsx'
-  | 'MASTER_USER_MANUAL.md'
   | 'firestore.rules'
   | 'Dockerfile'
   | 'requirements.txt'
@@ -40,7 +40,8 @@ export type RepoFileKey =
 const ALL_REPO_FILES: RepoFileKey[] = [
   'server.ts',
   'src/App.tsx',
-  'src/components/TestFeatureNowModal.tsx',
+  'src/components/QuickTestView.tsx',
+  'src/components/SelfTestView.tsx',
   'src/components/CodeInspector.tsx',
   'src/components/VideoComparison.tsx',
   'src/components/GcpConsoleNav.tsx',
@@ -51,7 +52,6 @@ const ALL_REPO_FILES: RepoFileKey[] = [
   'main.py',
   'app.py',
   'demo_runner.py',
-  'MASTER_USER_MANUAL.md',
   'firestore.rules',
   'Dockerfile',
   'requirements.txt',
@@ -149,7 +149,7 @@ export const CodeInspector: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'echoflow_complete_codebase_bundle_for_claude.md';
+    link.download = 'echoflow_local_backup_bundle.md';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -169,7 +169,7 @@ export const CodeInspector: React.FC = () => {
     if (file === 'main.py') return 'FastAPI Gateway';
     if (file === 'app.py') return 'Streamlit Dashboard';
     if (file === 'demo_runner.py') return 'Automated Test Suite';
-    if (file === 'MASTER_USER_MANUAL.md') return 'Operations Manual';
+    if (file === 'README.md') return 'Architecture & Audit Docs';
     if (file === 'Dockerfile') return 'Cloud Run Container';
     if (file === 'cloud_deploy.sh') return 'GCP Deploy Script';
     return 'Manifest';
@@ -199,19 +199,19 @@ export const CodeInspector: React.FC = () => {
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
               Inspect production files including <strong>server.ts</strong> and the complete <strong>React src/</strong> application
-              or download the consolidated single-file bundle for <strong>Claude, ChatGPT, or Cursor</strong>.
+              or download the consolidated single-file <strong>Local Backup</strong> bundle.
             </p>
           </div>
 
-          {/* Action Buttons: Claude AI Bundle, Download All */}
+          {/* Action Buttons: Local Backup Bundle, Download All */}
           <div className="flex flex-wrap items-center gap-2.5">
             <button
               onClick={handleDownloadClaudeBundle}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs transition-all shadow-md shadow-purple-600/30 active:scale-95 cursor-pointer"
-              title="Download consolidated bundle formatted for Claude / ChatGPT"
+              title="Download consolidated Local Backup bundle"
             >
               <Bot className="w-4 h-4 text-purple-200" />
-              <span>Download for Claude / ChatGPT</span>
+              <span>Download Local Backup</span>
             </button>
 
             <button
@@ -219,7 +219,7 @@ export const CodeInspector: React.FC = () => {
               className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/40 text-xs font-semibold transition-all active:scale-95 cursor-pointer"
             >
               {copiedClaude ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-              <span>{copiedClaude ? 'Copied for Claude / ChatGPT!' : 'Copy for Claude / ChatGPT'}</span>
+              <span>{copiedClaude ? 'Copied Local Backup!' : 'Copy Local Backup'}</span>
             </button>
 
             <button
@@ -237,7 +237,7 @@ export const CodeInspector: React.FC = () => {
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
             <span>
-              <strong>Claude & ChatGPT Ready:</strong> Single-file export consolidates <strong>server.ts</strong>, <strong>Test Suite</strong>, <strong>React src/</strong> components, <strong>FastAPI main.py</strong>, and all manuals with standardized XML tags (<code>&lt;file path=&quot;...&quot;&gt;</code>) for instant pasting into Claude, ChatGPT, or Cursor.
+              <strong>Local Backup Ready:</strong> Single-file export consolidates <strong>server.ts</strong>, <strong>Test Suite</strong>, <strong>React src/</strong> components, <strong>FastAPI main.py</strong>, and all manuals with standardized XML tags (<code>&lt;file path=&quot;...&quot;&gt;</code>) for instant local preservation, offline review, or pasting into AI models.
             </span>
           </div>
           <span className="hidden sm:inline text-[11px] font-mono text-purple-400">XML Delimited Bundle</span>

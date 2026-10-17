@@ -104,7 +104,7 @@ export const FloatingGeminiAgent: React.FC<FloatingGeminiAgentProps> = ({
     const notifyMsg: AgentMessage = {
       id: `download_${Date.now()}`,
       role: 'model',
-      content: `📁 **Code Download Location:**\nI have routed you to the **Documentation & Reference Hub** &rarr; **Codebase & Claude Bundle** tab.\n\nYou can:\n1. Click **"Download Full Claude Bundle"** to export the entire repository as a structured single-file XML package for Claude, ChatGPT, or Cursor.\n2. Or click **"Download File"** on any specific file (such as \`server.ts\`, \`main.py\`, \`demo_runner.py\`, or \`src/App.tsx\`) to inspect bugs in your local editor.`,
+      content: `📁 **Code Download Location:**\nI have routed you to the **Documentation & Reference Hub** &rarr; **Codebase & Local Backup** tab.\n\nYou can:\n1. Click **"Download Full Local Backup"** to export the entire repository as a structured single-file XML package for offline preservation or AI analysis.\n2. Or click **"Download File"** on any specific file (such as \`server.ts\`, \`main.py\`, \`demo_runner.py\`, or \`src/App.tsx\`) to inspect bugs in your local editor.`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
     setMessages((prev) => [...prev, notifyMsg]);
@@ -138,7 +138,7 @@ export const FloatingGeminiAgent: React.FC<FloatingGeminiAgentProps> = ({
         const replyMsg: AgentMessage = {
           id: `bot_${Date.now()}`,
           role: 'model',
-          content: `📥 **Where to Download Code for Bug Checking:**\n\n1. **In-App Inspector:** Open the **Documentation & Reference Hub** (\`docs\`) in the left navigation sidebar and select the **"Codebase & Claude Bundle"** sub-tab.\n2. **Direct Single-File Claude Bundle:** You can download the complete repository (\`server.ts\`, \`main.py\`, \`app.py\`, \`demo_runner.py\`, and all \`src/\` files) as a single markdown bundle formatted with standardized XML delimiters (\`<file path="...">\`) ready for Claude or Cursor bug auditing.\n3. **Individual Files:** In that same tab, select any file from the file picker and click the **"Download File"** button.\n4. **Automated Test Suite:** To run verification on the codebase, execute \`python3 demo_runner.py\` in your terminal to run the 12 deterministic test suites.`,
+          content: `📥 **Where to Download Code for Bug Checking:**\n\n1. **In-App Inspector:** Open the **Documentation & Reference Hub** (\`docs\`) in the left navigation sidebar and select the **"Codebase & Local Backup"** sub-tab.\n2. **Direct Single-File Local Backup:** You can download the complete repository (\`server.ts\`, \`main.py\`, \`app.py\`, \`demo_runner.py\`, and all \`src/\` files) as a single markdown bundle formatted with standardized XML delimiters (\`<file path="...">\`) ready for local auditing or AI analysis.\n3. **Individual Files:** In that same tab, select any file from the file picker and click the **"Download File"** button.\n4. **Automated Test Suite:** To run verification on the codebase, execute \`python3 demo_runner.py\` in your terminal to run the 12 deterministic test suites.`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           actionButton: {
             label: 'Jump to Code Download Tab',
@@ -192,7 +192,7 @@ export const FloatingGeminiAgent: React.FC<FloatingGeminiAgentProps> = ({
       const fallbackReply: AgentMessage = {
         id: `bot_${Date.now()}`,
         role: 'model',
-        content: `I'm here to help! You can download the complete codebase from the **Documentation & Reference Hub &rarr; Codebase & Claude Bundle** tab, or clear cache using the button below.`,
+        content: `I'm here to help! You can download the complete codebase from the **Documentation & Reference Hub &rarr; Codebase & Local Backup** tab, or clear cache using the button below.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, fallbackReply]);
